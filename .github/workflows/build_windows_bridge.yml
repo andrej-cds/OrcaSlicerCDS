@@ -70,6 +70,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          report_failure() {
+            sleep 2; echo "::error title=runtime-step-failed::$(tail -n 40 /tmp/runtime_step.log | tr '\n' '|' | cut -c1-3500)"
+          }
+          trap report_failure ERR
+          exec > >(tee /tmp/runtime_step.log) 2>&1
           cmake --build build --config Release --target slicer_linux_runtime_host
           bash tools/slicer_linux_runtime_host/package_linux_host_runtime.sh build
           (cd tools/slicer_linux_runtime_host/runtime/linux-x86_64 && sha256sum -c runtime-files.sha256)
