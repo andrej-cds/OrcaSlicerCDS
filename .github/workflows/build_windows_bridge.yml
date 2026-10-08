@@ -210,20 +210,18 @@ jobs:
 
       - name: Build Windows deps
         working-directory: ${{ github.workspace }}
-        env:
-          WindowsSdkDir: 'C:\Program Files (x86)\Windows Kits\10\'
-          WindowsSDKVersion: '10.0.26100.0\'
         shell: pwsh
-        run: .\build_release_vs.bat deps
+        run: .\build_win.bat -d --arch x64 --msvc --msbuild
 
       - name: Build slicer Win
         working-directory: ${{ github.workspace }}
-        env:
-          WindowsSdkDir: 'C:\Program Files (x86)\Windows Kits\10\'
-          WindowsSDKVersion: '10.0.26100.0\'
         shell: pwsh
-        run: .\build_release_vs.bat slicer
+        run: .\build_win.bat -s -i --arch x64 --msvc --msbuild --build-dir build
 
+
+      - name: Build system preset cache (Windows)
+        shell: cmd
+        run: scripts\build_preset_cache.bat --prune-source "build" "resources\profiles" "build\OrcaSlicer\resources\profiles"
 
       - name: Normalize Windows runtime shell scripts
         shell: pwsh
