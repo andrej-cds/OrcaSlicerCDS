@@ -1,5 +1,6 @@
 #include "BBLCloudServiceAgent.hpp"
 #include "BBLNetworkPlugin.hpp"
+#include "SlicerLinuxRuntime/SlicerLinuxRuntimeConfig.hpp"
 
 #include <boost/log/trivial.hpp>
 #include "CloudProvider.hpp"
@@ -65,24 +66,42 @@ std::map<std::string, std::string> BBLCloudServiceAgent::get_extra_header()
     extra_headers.emplace("X-BBL-Client-Name", "BambuStudio");
 
     extra_headers.emplace("X-BBL-Client-Version", GUI::wxGetApp().get_bbl_client_version());
+
+    if (SlicerLinuxRuntime::enabled() && SlicerLinuxRuntime::use_linux_runtime()) {
+        extra_headers.emplace("X-BBL-OS-Type", SlicerLinuxRuntime::linux_component_package_os_type());
+    } else {
 #if defined(__WINDOWS__)
 #ifdef _M_X64
-    extra_headers.emplace("X-BBL-OS-Type", "windows");
+        extra_headers.emplace("X-BBL-OS-Type", "windows");
 #else
-    extra_headers.emplace("X-BBL-OS-Type", "windows_arm");
+        extra_headers.emplace("X-BBL-OS-Type", "windows_arm");
 #endif
 #elif defined(__APPLE__)
-    extra_headers.emplace("X-BBL-OS-Type", "macos");
+        extra_headers.emplace("X-BBL-OS-Type", "macos");
 #elif defined(__LINUX__)
-    extra_headers.emplace("X-BBL-OS-Type", "linux");
+        extra_headers.emplace("X-BBL-OS-Type", "linux");
 #endif
+    }
 
-    int major = 0, minor = 0, micro = 0;
-    wxGetOsVersion(&major, &minor, &micro);
-
-    std::ostringstream os_version;
-    os_version << major << "." << minor << "." << micro;
-    extra_headers.emplace("X-BBL-OS-Version", os_version.str());
+    std::string os_version;
+    if (SlicerLinuxRuntime::enabled() && SlicerLinuxRuntime::use_linux_runtime()) {
+        auto module_lock = BBLNetworkPlugin::lock_module_for_call();
+        auto capabilities = BBLNetworkPlugin::instance().get_linux_auth_capabilities();
+        if (capabilities) {
+            try {
+                os_version = nlohmann::json::parse(capabilities()).value("linux_os_version", std::string());
+            } catch (...) {}
+        }
+        if (os_version.empty())
+            os_version = "0.0.0";
+    } else {
+        int major = 0, minor = 0, micro = 0;
+        wxGetOsVersion(&major, &minor, &micro);
+        std::ostringstream value;
+        value << major << "." << minor << "." << micro;
+        os_version = value.str();
+    }
+    extra_headers.emplace("X-BBL-OS-Version", os_version);
 
     auto& app = GUI::wxGetApp();
     if (app.app_config) {
@@ -105,6 +124,7 @@ BBLCloudServiceAgent::~BBLCloudServiceAgent() = default;
 int BBLCloudServiceAgent::init_log()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_init_log();
     if (func && agent) {
@@ -116,6 +136,7 @@ int BBLCloudServiceAgent::init_log()
 int BBLCloudServiceAgent::set_config_dir(std::string config_dir)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_set_config_dir();
     if (func && agent) {
@@ -127,6 +148,7 @@ int BBLCloudServiceAgent::set_config_dir(std::string config_dir)
 int BBLCloudServiceAgent::set_cert_file(std::string folder, std::string filename)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_set_cert_file();
     if (func && agent) {
@@ -138,6 +160,7 @@ int BBLCloudServiceAgent::set_cert_file(std::string folder, std::string filename
 int BBLCloudServiceAgent::set_country_code(std::string country_code)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_set_country_code();
     if (func && agent) {
@@ -151,6 +174,7 @@ int BBLCloudServiceAgent::start()
     set_extra_http_header();
 
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_start();
     if (func && agent) {
@@ -166,6 +190,7 @@ int BBLCloudServiceAgent::start()
 int BBLCloudServiceAgent::change_user(std::string user_info)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_change_user();
     if (func && agent) {
@@ -177,6 +202,7 @@ int BBLCloudServiceAgent::change_user(std::string user_info)
 bool BBLCloudServiceAgent::is_user_login()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_is_user_login();
     if (func && agent) {
@@ -188,6 +214,7 @@ bool BBLCloudServiceAgent::is_user_login()
 int BBLCloudServiceAgent::user_logout(bool request)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_user_logout();
     if (func && agent) {
@@ -199,6 +226,7 @@ int BBLCloudServiceAgent::user_logout(bool request)
 std::string BBLCloudServiceAgent::get_user_id()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_user_id();
     if (func && agent) {
@@ -210,6 +238,7 @@ std::string BBLCloudServiceAgent::get_user_id()
 std::string BBLCloudServiceAgent::get_user_name()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_user_name();
     if (func && agent) {
@@ -221,6 +250,7 @@ std::string BBLCloudServiceAgent::get_user_name()
 std::string BBLCloudServiceAgent::get_user_avatar()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_user_avatar();
     if (func && agent) {
@@ -232,6 +262,7 @@ std::string BBLCloudServiceAgent::get_user_avatar()
 std::string BBLCloudServiceAgent::get_user_nickname()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_user_nickanme();
     if (func && agent) {
@@ -247,6 +278,7 @@ std::string BBLCloudServiceAgent::get_user_nickname()
 std::string BBLCloudServiceAgent::build_login_cmd()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_build_login_cmd();
     if (func && agent) {
@@ -258,6 +290,7 @@ std::string BBLCloudServiceAgent::build_login_cmd()
 std::string BBLCloudServiceAgent::build_logout_cmd()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_build_logout_cmd();
     if (func && agent) {
@@ -269,6 +302,7 @@ std::string BBLCloudServiceAgent::build_logout_cmd()
 std::string BBLCloudServiceAgent::build_login_info()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_build_login_info();
     if (func && agent) {
@@ -309,6 +343,7 @@ bool BBLCloudServiceAgent::ensure_token_fresh(const std::string& reason)
 std::string BBLCloudServiceAgent::get_cloud_service_host()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_bambulab_host();
     if (func && agent) {
@@ -333,6 +368,7 @@ std::string BBLCloudServiceAgent::get_cloud_login_url(const std::string& languag
 int BBLCloudServiceAgent::connect_server()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_connect_server();
     if (func && agent) {
@@ -344,6 +380,7 @@ int BBLCloudServiceAgent::connect_server()
 bool BBLCloudServiceAgent::is_server_connected()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_is_server_connected();
     if (func && agent) {
@@ -355,6 +392,7 @@ bool BBLCloudServiceAgent::is_server_connected()
 int BBLCloudServiceAgent::refresh_connection()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_refresh_connection();
     if (func && agent) {
@@ -366,6 +404,7 @@ int BBLCloudServiceAgent::refresh_connection()
 int BBLCloudServiceAgent::start_subscribe(std::string module)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_start_subscribe();
     if (func && agent) {
@@ -377,6 +416,7 @@ int BBLCloudServiceAgent::start_subscribe(std::string module)
 int BBLCloudServiceAgent::stop_subscribe(std::string module)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_stop_subscribe();
     if (func && agent) {
@@ -388,6 +428,7 @@ int BBLCloudServiceAgent::stop_subscribe(std::string module)
 int BBLCloudServiceAgent::add_subscribe(std::vector<std::string> dev_list)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_add_subscribe();
     if (func && agent) {
@@ -399,6 +440,7 @@ int BBLCloudServiceAgent::add_subscribe(std::vector<std::string> dev_list)
 int BBLCloudServiceAgent::del_subscribe(std::vector<std::string> dev_list)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_del_subscribe();
     if (func && agent) {
@@ -410,6 +452,7 @@ int BBLCloudServiceAgent::del_subscribe(std::vector<std::string> dev_list)
 void BBLCloudServiceAgent::enable_multi_machine(bool enable)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_enable_multi_machine();
     if (func && agent) {
@@ -424,6 +467,7 @@ void BBLCloudServiceAgent::enable_multi_machine(bool enable)
 int BBLCloudServiceAgent::get_user_presets(std::map<std::string, std::map<std::string, std::string>>* user_presets)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_user_presets();
     if (func && agent) {
@@ -435,6 +479,7 @@ int BBLCloudServiceAgent::get_user_presets(std::map<std::string, std::map<std::s
 std::string BBLCloudServiceAgent::request_setting_id(std::string name, std::map<std::string, std::string>* values_map, unsigned int* http_code)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_request_setting_id();
     if (func && agent) {
@@ -446,6 +491,7 @@ std::string BBLCloudServiceAgent::request_setting_id(std::string name, std::map<
 int BBLCloudServiceAgent::put_setting(std::string setting_id, std::string name, std::map<std::string, std::string>* values_map, unsigned int* http_code, bool force)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_put_setting();
     if (func && agent) {
@@ -457,6 +503,7 @@ int BBLCloudServiceAgent::put_setting(std::string setting_id, std::string name, 
 int BBLCloudServiceAgent::get_setting_list(std::string bundle_version, ProgressFn pro_fn, WasCancelledFn cancel_fn)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_setting_list();
     if (func && agent) {
@@ -468,6 +515,7 @@ int BBLCloudServiceAgent::get_setting_list(std::string bundle_version, ProgressF
 int BBLCloudServiceAgent::get_setting_list2(std::string bundle_version, CheckFn chk_fn, ProgressFn pro_fn, WasCancelledFn cancel_fn)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_setting_list2();
     if (func && agent) {
@@ -479,6 +527,7 @@ int BBLCloudServiceAgent::get_setting_list2(std::string bundle_version, CheckFn 
 int BBLCloudServiceAgent::delete_setting(std::string setting_id)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_delete_setting();
     if (func && agent) {
@@ -494,6 +543,7 @@ int BBLCloudServiceAgent::delete_setting(std::string setting_id)
 int BBLCloudServiceAgent::get_my_message(int type, int after, int limit, unsigned int* http_code, std::string* http_body)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_my_message();
     if (func && agent) {
@@ -505,6 +555,7 @@ int BBLCloudServiceAgent::get_my_message(int type, int after, int limit, unsigne
 int BBLCloudServiceAgent::check_user_task_report(int* task_id, bool* printable)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_check_user_task_report();
     if (func && agent) {
@@ -516,6 +567,7 @@ int BBLCloudServiceAgent::check_user_task_report(int* task_id, bool* printable)
 int BBLCloudServiceAgent::get_user_print_info(unsigned int* http_code, std::string* http_body)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_user_print_info();
     if (func && agent) {
@@ -527,6 +579,7 @@ int BBLCloudServiceAgent::get_user_print_info(unsigned int* http_code, std::stri
 int BBLCloudServiceAgent::get_user_tasks(TaskQueryParams params, std::string* http_body)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_user_tasks();
     if (func && agent) {
@@ -538,6 +591,7 @@ int BBLCloudServiceAgent::get_user_tasks(TaskQueryParams params, std::string* ht
 int BBLCloudServiceAgent::get_printer_firmware(std::string dev_id, unsigned* http_code, std::string* http_body)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_printer_firmware();
     if (func && agent) {
@@ -549,6 +603,7 @@ int BBLCloudServiceAgent::get_printer_firmware(std::string dev_id, unsigned* htt
 int BBLCloudServiceAgent::get_task_plate_index(std::string task_id, int* plate_index)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_task_plate_index();
     if (func && agent) {
@@ -560,6 +615,7 @@ int BBLCloudServiceAgent::get_task_plate_index(std::string task_id, int* plate_i
 int BBLCloudServiceAgent::get_user_info(int* identifier)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_user_info();
     if (func && agent) {
@@ -571,6 +627,7 @@ int BBLCloudServiceAgent::get_user_info(int* identifier)
 int BBLCloudServiceAgent::get_subtask_info(std::string subtask_id, std::string* task_json, unsigned int* http_code, std::string* http_body)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_subtask_info();
     if (func && agent) {
@@ -582,6 +639,7 @@ int BBLCloudServiceAgent::get_subtask_info(std::string subtask_id, std::string* 
 int BBLCloudServiceAgent::get_slice_info(std::string project_id, std::string profile_id, int plate_index, std::string* slice_json)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_slice_info();
     if (func && agent) {
@@ -593,6 +651,7 @@ int BBLCloudServiceAgent::get_slice_info(std::string project_id, std::string pro
 int BBLCloudServiceAgent::query_bind_status(std::vector<std::string> query_list, unsigned int* http_code, std::string* http_body)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_query_bind_status();
     if (func && agent) {
@@ -604,6 +663,7 @@ int BBLCloudServiceAgent::query_bind_status(std::vector<std::string> query_list,
 int BBLCloudServiceAgent::modify_printer_name(std::string dev_id, std::string dev_name)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_modify_printer_name();
     if (func && agent) {
@@ -619,6 +679,7 @@ int BBLCloudServiceAgent::modify_printer_name(std::string dev_id, std::string de
 int BBLCloudServiceAgent::get_camera_url(std::string dev_id, std::function<void(std::string)> callback)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_camera_url();
     if (func && agent) {
@@ -630,6 +691,7 @@ int BBLCloudServiceAgent::get_camera_url(std::string dev_id, std::function<void(
 int BBLCloudServiceAgent::get_design_staffpick(int offset, int limit, std::function<void(std::string)> callback)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_design_staffpick();
     if (func && agent) {
@@ -641,6 +703,7 @@ int BBLCloudServiceAgent::get_design_staffpick(int offset, int limit, std::funct
 int BBLCloudServiceAgent::start_publish(PublishParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn, std::string* out)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_start_publish();
     if (func && agent) {
@@ -652,6 +715,7 @@ int BBLCloudServiceAgent::start_publish(PublishParams params, OnUpdateStatusFn u
 int BBLCloudServiceAgent::get_model_publish_url(std::string* url)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_model_publish_url();
     if (func && agent) {
@@ -663,6 +727,7 @@ int BBLCloudServiceAgent::get_model_publish_url(std::string* url)
 int BBLCloudServiceAgent::get_subtask(BBLModelTask* task, OnGetSubTaskFn getsub_fn)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_subtask();
     if (func && agent) {
@@ -674,6 +739,7 @@ int BBLCloudServiceAgent::get_subtask(BBLModelTask* task, OnGetSubTaskFn getsub_
 int BBLCloudServiceAgent::get_model_mall_home_url(std::string* url)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_model_mall_home_url();
     if (func && agent) {
@@ -685,6 +751,7 @@ int BBLCloudServiceAgent::get_model_mall_home_url(std::string* url)
 int BBLCloudServiceAgent::get_model_mall_detail_url(std::string* url, std::string id)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_model_mall_detail_url();
     if (func && agent) {
@@ -696,6 +763,7 @@ int BBLCloudServiceAgent::get_model_mall_detail_url(std::string* url, std::strin
 int BBLCloudServiceAgent::get_my_profile(std::string token, unsigned int* http_code, std::string* http_body)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_my_profile();
     if (func && agent) {
@@ -707,6 +775,7 @@ int BBLCloudServiceAgent::get_my_profile(std::string token, unsigned int* http_c
 int BBLCloudServiceAgent::get_my_token(std::string ticket, unsigned int* http_code, std::string* http_body)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_my_token();
     if (func && agent) {
@@ -723,6 +792,7 @@ int BBLCloudServiceAgent::track_enable(bool enable)
 {
     m_enable_track = enable;
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_track_enable();
     if (func && agent) {
@@ -734,6 +804,7 @@ int BBLCloudServiceAgent::track_enable(bool enable)
 int BBLCloudServiceAgent::track_remove_files()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_track_remove_files();
     if (func && agent) {
@@ -745,6 +816,7 @@ int BBLCloudServiceAgent::track_remove_files()
 int BBLCloudServiceAgent::track_event(std::string evt_key, std::string content)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_track_event();
     if (func && agent) {
@@ -756,6 +828,7 @@ int BBLCloudServiceAgent::track_event(std::string evt_key, std::string content)
 int BBLCloudServiceAgent::track_header(std::string header)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_track_header();
     if (func && agent) {
@@ -767,6 +840,7 @@ int BBLCloudServiceAgent::track_header(std::string header)
 int BBLCloudServiceAgent::track_update_property(std::string name, std::string value, std::string type)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_track_update_property();
     if (func && agent) {
@@ -778,6 +852,7 @@ int BBLCloudServiceAgent::track_update_property(std::string name, std::string va
 int BBLCloudServiceAgent::track_get_property(std::string name, std::string& value, std::string type)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_track_get_property();
     if (func && agent) {
@@ -798,6 +873,7 @@ bool BBLCloudServiceAgent::get_track_enable()
 int BBLCloudServiceAgent::put_model_mall_rating(int design_id, int score, std::string content, std::vector<std::string> images, unsigned int& http_code, std::string& http_error)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_put_model_mall_rating();
     if (func && agent) {
@@ -809,6 +885,7 @@ int BBLCloudServiceAgent::put_model_mall_rating(int design_id, int score, std::s
 int BBLCloudServiceAgent::get_oss_config(std::string& config, std::string country_code, unsigned int& http_code, std::string& http_error)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_oss_config();
     if (func && agent) {
@@ -820,6 +897,7 @@ int BBLCloudServiceAgent::get_oss_config(std::string& config, std::string countr
 int BBLCloudServiceAgent::put_rating_picture_oss(std::string& config, std::string& pic_oss_path, std::string model_id, int profile_id, unsigned int& http_code, std::string& http_error)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_put_rating_picture_oss();
     if (func && agent) {
@@ -831,6 +909,7 @@ int BBLCloudServiceAgent::put_rating_picture_oss(std::string& config, std::strin
 int BBLCloudServiceAgent::get_model_mall_rating_result(int job_id, std::string& rating_result, unsigned int& http_code, std::string& http_error)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_model_mall_rating_result();
     if (func && agent) {
@@ -845,23 +924,22 @@ int BBLCloudServiceAgent::get_model_mall_rating_result(int job_id, std::string& 
 
 int BBLCloudServiceAgent::set_extra_http_header()
 {
-    // Orca: not sure if this required to login into bbl cloud
-    // Slic3r::Http::set_extra_headers(extra_headers);
+    auto extra_headers = get_extra_header();
+    Slic3r::Http::set_bambu_extra_headers(extra_headers);
 
     auto& plugin = BBLNetworkPlugin::instance();
-    auto  agent  = plugin.get_agent();
-
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
+    auto agent = plugin.get_agent();
     auto func = plugin.get_set_extra_http_header();
-    if (func && agent) {
-        auto extra_headers = get_extra_header();
+    if (func && agent)
         return func(agent, extra_headers);
-    }
     return -1;
 }
 
 int BBLCloudServiceAgent::get_mw_user_preference(std::function<void(std::string)> callback)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_mw_user_preference();
     if (func && agent) {
@@ -873,6 +951,7 @@ int BBLCloudServiceAgent::get_mw_user_preference(std::function<void(std::string)
 int BBLCloudServiceAgent::get_mw_user_4ulist(int seed, int limit, std::function<void(std::string)> callback)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_get_mw_user_4ulist();
     if (func && agent) {
@@ -884,6 +963,7 @@ int BBLCloudServiceAgent::get_mw_user_4ulist(int seed, int limit, std::function<
 std::string BBLCloudServiceAgent::get_version()
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto func = plugin.get_get_version();
     if (func) {
         return func();
@@ -899,6 +979,7 @@ int BBLCloudServiceAgent::set_on_server_connected_fn(AppOnServerConnectedFn fn)
 {
     m_app_on_server_connected_fn = fn;
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_set_on_server_connected_fn();
     if (func && agent) {
@@ -916,6 +997,7 @@ int BBLCloudServiceAgent::set_on_http_error_fn(AppOnHttpErrorFn fn)
 {
     m_app_on_http_error_fn = fn;
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_set_on_http_error_fn();
     if (func && agent) {
@@ -932,6 +1014,7 @@ int BBLCloudServiceAgent::set_on_http_error_fn(AppOnHttpErrorFn fn)
 int BBLCloudServiceAgent::set_get_country_code_fn(GetCountryCodeFn fn)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_set_get_country_code_fn();
     if (func && agent) {
@@ -943,6 +1026,7 @@ int BBLCloudServiceAgent::set_get_country_code_fn(GetCountryCodeFn fn)
 int BBLCloudServiceAgent::set_queue_on_main_fn(QueueOnMainFn fn)
 {
     auto& plugin = BBLNetworkPlugin::instance();
+    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
     auto agent = plugin.get_agent();
     auto func = plugin.get_set_queue_on_main_fn();
     if (func && agent) {

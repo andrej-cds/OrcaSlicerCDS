@@ -717,6 +717,7 @@ set(SLIC3R_GUI_SOURCES
     Utils/AstroBox.cpp
     Utils/AstroBox.hpp
     Utils/bambu_networking.hpp
+    Utils/SlicerLinuxRuntime/SlicerLinuxRuntimeConfig.cpp
     Utils/Bonjour.cpp
     Utils/Bonjour.hpp
     Utils/MeshInspect.cpp
@@ -854,6 +855,7 @@ endif ()
 
 add_subdirectory(GUI/DeviceCore)
 add_subdirectory(GUI/DeviceTab)
+add_subdirectory(Utils/SlicerLinuxRuntime)
 
 if (WIN32)
     list(APPEND SLIC3R_GUI_SOURCES

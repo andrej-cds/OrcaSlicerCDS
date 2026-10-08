@@ -16100,6 +16100,7 @@ void Plater::import_model_id(wxString download_info)
         auto filesize = 0;
         bool size_limit = false;
         auto http = Http::get(download_url.ToStdString());
+        http.via_linux_runtime();
 
         while (cont && retry_count < max_retries) {
             retry_count++;

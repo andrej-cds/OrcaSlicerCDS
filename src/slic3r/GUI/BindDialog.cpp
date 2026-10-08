@@ -912,7 +912,7 @@ void BindMachineDialog::on_show(wxShowEvent &event)
             std::string avatar_url = wxGetApp().getAgent()->get_user_avatar(provider);
             Slic3r::Http http = Slic3r::Http::get(avatar_url);
             std::string  suffix = avatar_url.substr(avatar_url.find_last_of(".") + 1);
-            http.header("accept", "image/" + suffix)
+            http.via_linux_runtime().header("accept", "image/" + suffix)
                 .on_complete([this, time = std::weak_ptr<int>(m_tocken)](std::string body, unsigned int status) {
                 if (time.expired()) return;
                 wxMemoryInputStream stream(body.data(), body.size());
@@ -1118,7 +1118,7 @@ void UnBindMachineDialog::on_show(wxShowEvent &event)
             std::string avatar_url = wxGetApp().getAgent()->get_user_avatar(provider);
             Slic3r::Http http = Slic3r::Http::get(avatar_url);
             std::string  suffix = avatar_url.substr(avatar_url.find_last_of(".") + 1);
-            http.header("accept", "image/" + suffix)
+            http.via_linux_runtime().header("accept", "image/" + suffix)
                 .on_complete([this, time = std::weak_ptr<int>(m_tocken)](std::string body, unsigned int status) {
                 if (time.expired()) return;
                 wxMemoryInputStream stream(body.data(), body.size());

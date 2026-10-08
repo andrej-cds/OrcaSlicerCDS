@@ -169,6 +169,78 @@ if (NOT WIN32 AND NOT APPLE)
 endif ()
 
 target_link_libraries(OrcaSlicer libslic3r cereal::cereal)
+set(SLICER_LINUX_RUNTIME_WINDOWS_RUNTIME_SUPPORT_FILES "")
+set(SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES "")
+if (WIN32)
+    foreach(_runtime_support_file
+        "${CMAKE_SOURCE_DIR}/tools/slicer_linux_runtime/wsl/slicer_linux_runtime_wsl_distro.txt"
+        "${CMAKE_SOURCE_DIR}/tools/slicer_linux_runtime/wsl/install_runtime.ps1"
+        "${CMAKE_SOURCE_DIR}/tools/slicer_linux_runtime/wsl/install_runtime.cmd"
+        "${CMAKE_SOURCE_DIR}/tools/slicer_linux_runtime/wsl/verify_runtime.ps1"
+        "${CMAKE_SOURCE_DIR}/tools/slicer_linux_runtime/wsl/slicer_linux_runtime_wsl_run_host.sh"
+        "${CMAKE_SOURCE_DIR}/tools/slicer_linux_runtime/wsl/slicer_linux_runtime_component_dir.txt"
+        "${CMAKE_SOURCE_DIR}/tools/slicer_linux_runtime/release/assemble_windows_runtime_bundle.ps1")
+        if (EXISTS "${_runtime_support_file}")
+            file(TO_CMAKE_PATH "${_runtime_support_file}" _runtime_support_file_cmake)
+            list(APPEND SLICER_LINUX_RUNTIME_WINDOWS_RUNTIME_SUPPORT_FILES "${_runtime_support_file_cmake}")
+        endif()
+    endforeach()
+
+    if (DEFINED SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR AND NOT "${SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR}" STREQUAL "")
+        if (NOT EXISTS "${SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR}")
+            message(FATAL_ERROR "SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR does not exist: ${SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR}")
+        endif()
+
+        file(GLOB SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR_GLOB LIST_DIRECTORIES false "${SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR}/*")
+        if (NOT SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR_GLOB)
+            message(FATAL_ERROR "SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR is empty: ${SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR}")
+        endif()
+
+        foreach(_runtime_file ${SLICER_LINUX_RUNTIME_WSL_RUNTIME_DIR_GLOB})
+            if (EXISTS "${_runtime_file}" AND NOT IS_DIRECTORY "${_runtime_file}")
+                get_filename_component(_runtime_file_name "${_runtime_file}" NAME)
+                if (NOT _runtime_file_name MATCHES "^(libbambu_networking[.]so|libBambuSource[.]so|liblive555[.]so|libagora_rtc_sdk[.]so|libagora-fdkaac[.]so|linux_component_manifest[.]json|network_plugins[.]json)$")
+                    file(TO_CMAKE_PATH "${_runtime_file}" _runtime_file_cmake)
+                    list(APPEND SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES "${_runtime_file_cmake}")
+                endif()
+            endif()
+        endforeach()
+    else()
+        set(_default_linux_runtime_dir
+            "${CMAKE_SOURCE_DIR}/tools/slicer_linux_runtime_host/runtime/linux-x86_64")
+        if (EXISTS "${_default_linux_runtime_dir}")
+            file(GLOB _default_linux_runtime_files LIST_DIRECTORIES false
+                "${_default_linux_runtime_dir}/*")
+            foreach(_runtime_file ${_default_linux_runtime_files})
+                get_filename_component(_runtime_file_name "${_runtime_file}" NAME)
+                if (NOT _runtime_file_name MATCHES "^(libbambu_networking[.]so|libBambuSource[.]so|liblive555[.]so|libagora_rtc_sdk[.]so|libagora-fdkaac[.]so|linux_component_manifest[.]json|network_plugins[.]json)$")
+                    file(TO_CMAKE_PATH "${_runtime_file}" _runtime_file_cmake)
+                    list(APPEND SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES "${_runtime_file_cmake}")
+                endif()
+            endforeach()
+        endif()
+
+        foreach(_runtime_file
+            "${CMAKE_SOURCE_DIR}/tools/slicer_linux_runtime/rootfs/windows-wsl2-rootfs.tar"
+            "${CMAKE_SOURCE_DIR}/tools/slicer_linux_runtime/windows-wsl2-rootfs.tar")
+            if (EXISTS "${_runtime_file}")
+                file(TO_CMAKE_PATH "${_runtime_file}" _runtime_file_cmake)
+                list(APPEND SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES "${_runtime_file_cmake}")
+            endif()
+        endforeach()
+
+        foreach(_cert_candidate
+            "${CMAKE_SOURCE_DIR}/cert/ca-certificates.crt"
+            "${CMAKE_SOURCE_DIR}/resources/cert/ca-certificates.crt")
+            if (EXISTS "${_cert_candidate}")
+                file(TO_CMAKE_PATH "${_cert_candidate}" _runtime_file_cmake)
+                list(APPEND SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES "${_runtime_file_cmake}")
+                break()
+            endif()
+        endforeach()
+
+    endif()
+endif()
 # target_include_directories(OrcaSlicer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/slic3r)
 if (APPLE)
 #    add_compile_options(-stdlib=libc++)
@@ -390,6 +462,15 @@ if (WIN32)
     if (MSVC)
         install(TARGETS OrcaSlicer_app_gui RUNTIME DESTINATION ".")
     endif ()
+    if (TARGET slicer_linux_runtime)
+        install(TARGETS slicer_linux_runtime RUNTIME DESTINATION ".")
+    endif ()
+    if (SLICER_LINUX_RUNTIME_WINDOWS_RUNTIME_SUPPORT_FILES)
+        install(FILES ${SLICER_LINUX_RUNTIME_WINDOWS_RUNTIME_SUPPORT_FILES} DESTINATION ".")
+    endif()
+    if (SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES)
+        install(FILES ${SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES} DESTINATION ".")
+    endif()
     install(FILES ${output_dlls_${build_type}} DESTINATION ".")
     install(DIRECTORY "${CMAKE_PREFIX_PATH}/libpython/" DESTINATION "python")
 else ()

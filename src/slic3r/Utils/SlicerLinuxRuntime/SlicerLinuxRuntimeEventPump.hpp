@@ -1,0 +1,23 @@
+#pragma once
+
+namespace Slic3r::SlicerLinuxRuntime {
+
+class EventPump {
+public:
+    static EventPump& instance();
+    void ensure_started();
+    void request_stop();
+    void stop();
+
+private:
+    EventPump() = default;
+    EventPump(const EventPump&) = delete;
+    EventPump& operator=(const EventPump&) = delete;
+    ~EventPump();
+
+    void run();
+
+    bool m_running{false};
+};
+
+}

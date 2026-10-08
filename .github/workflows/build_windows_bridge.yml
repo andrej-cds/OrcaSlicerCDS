@@ -1,0 +1,335 @@
+name: Build Windows with Slicer Linux runtime
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  prepare_slicer_linux_runtime:
+    name: Prepare Slicer Linux runtime
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          lfs: 'false'
+
+      - name: Verify Linux runtime transport logic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/slicer_linux_runtime/verify_full_linux_transport.py
+          python3 tools/slicer_linux_runtime/test_runtime_dispatcher.py
+
+      - uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~4.3.0"
+          useLocalCache: true
+          useCloudCache: true
+
+      - name: Apt-Install Dependencies
+        uses: ./.github/actions/apt-install-deps
+
+      - name: Install Linux auth browser build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y dbus-x11 epiphany-browser libasound2t64 libgtk-3-dev libpulse0 libwebkit2gtk-4.1-dev novnc openbox openssl websockify x11vnc xvfb
+
+      - name: Build Linux deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "Build Linux deps attempt $attempt"
+            if ./build_linux.sh -drlL; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Transient dependency download/build failure, retrying after backoff"
+              sleep $((attempt * 20))
+            fi
+          done
+          exit 1
+
+      - name: Configure Slicer Linux runtime host build
+        shell: bash
+        run: |
+          cmake -S . -B build -G "Ninja Multi-Config" -DORCA_TOOLS=ON -DBBL_RELEASE_TO_PUBLIC=1 -DBBL_INTERNAL_TESTING=0
+
+      - name: Cache WSL rootfs
+        uses: actions/cache@v5
+        with:
+          path: tools/slicer_linux_runtime/rootfs/windows-wsl2-rootfs.tar
+          key: wsl-rootfs-ubuntu-24.04-v6-${{ hashFiles('tools/slicer_linux_runtime/rootfs/build_windows_wsl_rootfs.sh', 'tools/slicer_linux_runtime/rootfs/prepare_windows_wsl_rootfs.sh', 'tools/slicer_linux_runtime/rootfs/validate_windows_wsl_rootfs.py') }}
+          restore-keys: |
+            wsl-rootfs-ubuntu-24.04-v6-
+
+      - name: Build linux host runtime and WSL rootfs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build build --config Release --target slicer_linux_runtime_host
+          bash tools/slicer_linux_runtime_host/package_linux_host_runtime.sh build
+          (cd tools/slicer_linux_runtime_host/runtime/linux-x86_64 && sha256sum -c runtime-files.sha256)
+          bash tools/slicer_linux_runtime/rootfs/build_windows_wsl_rootfs.sh tools/slicer_linux_runtime/rootfs/windows-wsl2-rootfs.tar
+          python3 tools/slicer_linux_runtime/rootfs/validate_windows_wsl_rootfs.py tools/slicer_linux_runtime/rootfs/windows-wsl2-rootfs.tar ubuntu-24.04-linux-auth-v3
+          tar -czvf linux_host_runtime_${{ github.sha }}.tar.gz -C tools/slicer_linux_runtime_host/runtime linux-x86_64
+          tar -czvf wsl_rootfs_${{ github.sha }}.tar.gz -C tools/slicer_linux_runtime/rootfs windows-wsl2-rootfs.tar
+
+      - name: Show packaged Slicer Linux runtime files
+        shell: bash
+        run: |
+          find tools/slicer_linux_runtime_host/runtime/linux-x86_64 -maxdepth 1 -type f | sort
+
+
+      - name: Upload linux host runtime artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux_host_runtime_windows_${{ github.sha }}
+          path: ./linux_host_runtime_${{ github.sha }}.tar.gz
+          if-no-files-found: error
+
+      - name: Upload WSL rootfs artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsl_rootfs_${{ github.sha }}
+          path: ./wsl_rootfs_${{ github.sha }}.tar.gz
+          if-no-files-found: error
+
+  build_windows:
+    name: Build Windows
+    runs-on: windows-latest
+    timeout-minutes: 360
+    needs: prepare_slicer_linux_runtime
+    env:
+      ORCA_UPDATER_SIG_KEY: ${{ secrets.ORCA_UPDATER_SIG_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          lfs: 'false'
+
+      - uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~4.3.0"
+          useLocalCache: true
+          useCloudCache: true
+
+      - name: Get the version and date on Windows
+        shell: pwsh
+        run: |
+          $date = Get-Date -Format 'yyyyMMdd'
+          $eventName = "${{ github.event_name }}"
+          $prNumber = "${{ github.event.number }}"
+
+          if ($eventName -eq 'pull_request') {
+              $ver = "PR" + $prNumber
+          } else {
+              $tag = "${{ github.event.release.tag_name }}"
+              if ([string]::IsNullOrWhiteSpace($tag)) {
+                  $tag = $env:GITHUB_REF_NAME
+              }
+
+              if ($tag -match '^v(.+)$') {
+                  $ver = "V" + $matches[1]
+              } else {
+                  $versionContent = Get-Content version.inc -Raw
+                  if ($versionContent -match 'set\(SLIC3R_VERSION "(.*?)"\)') {
+                      $ver = "V" + $matches[1]
+                  } elseif ($versionContent -match 'set\(SoftFever_VERSION "(.*?)"\)') {
+                      $ver = "V" + $matches[1]
+                  } else {
+                      $ver = "git" + $env:GITHUB_SHA.Substring(0, 7)
+                  }
+              }
+          }
+
+          echo "ver=$ver" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          echo "date=$date" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Download linux host runtime artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: linux_host_runtime_windows_${{ github.sha }}
+          path: ${{ github.workspace }}/linux_host_runtime_artifact
+
+      - name: Extract linux host runtime artifact on Windows
+        working-directory: ${{ github.workspace }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\tools\slicer_linux_runtime_host\runtime" | Out-Null
+          tar -xzf "$env:GITHUB_WORKSPACE\linux_host_runtime_artifact\linux_host_runtime_${{ github.sha }}.tar.gz" -C "$env:GITHUB_WORKSPACE\tools\slicer_linux_runtime_host\runtime"
+
+      - name: Download WSL rootfs artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: wsl_rootfs_${{ github.sha }}
+          path: ${{ github.workspace }}/wsl_rootfs_artifact
+
+      - name: Extract WSL rootfs artifact on Windows
+        working-directory: ${{ github.workspace }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\tools\slicer_linux_runtime\rootfs" | Out-Null
+          tar -xzf "$env:GITHUB_WORKSPACE\wsl_rootfs_artifact\wsl_rootfs_${{ github.sha }}.tar.gz" -C "$env:GITHUB_WORKSPACE\tools\slicer_linux_runtime\rootfs"
+
+      - name: setup MSVC
+        uses: microsoft/setup-msbuild@v3
+
+      - name: Install nsis
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $nsisBin = "${env:ProgramFiles(x86)}\NSIS\Bin"
+          $makensis = Join-Path $nsisBin "makensis.exe"
+
+          if (!(Test-Path $makensis)) {
+            for ($i = 1; $i -le 3; $i++) {
+              choco install nsis -y --no-progress
+              if ($LASTEXITCODE -eq 0) { break }
+              if ($i -eq 3) { throw "choco install nsis failed" }
+              Start-Sleep -Seconds (15 * $i)
+            }
+          }
+
+          if (!(Test-Path $makensis)) {
+            throw "makensis.exe not found after NSIS install"
+          }
+
+          $env:PATH = "$nsisBin;$env:PATH"
+          Add-Content -Path $env:GITHUB_PATH -Value $nsisBin
+          & $makensis /VERSION
+
+      - name: Build Windows deps
+        working-directory: ${{ github.workspace }}
+        env:
+          WindowsSdkDir: 'C:\Program Files (x86)\Windows Kits\10\'
+          WindowsSDKVersion: '10.0.26100.0\'
+        shell: pwsh
+        run: .\build_release_vs.bat deps
+
+      - name: Build slicer Win
+        working-directory: ${{ github.workspace }}
+        env:
+          WindowsSdkDir: 'C:\Program Files (x86)\Windows Kits\10\'
+          WindowsSDKVersion: '10.0.26100.0\'
+        shell: pwsh
+        run: .\build_release_vs.bat slicer
+
+
+      - name: Normalize Windows runtime shell scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+          $scripts = @(
+              "$env:GITHUB_WORKSPACE\build\OrcaSlicer\slicer_linux_runtime_wsl_run_host.sh",
+              "$env:GITHUB_WORKSPACE\build\OrcaSlicer\slicer_linux_runtime_host",
+              "$env:GITHUB_WORKSPACE\build\OrcaSlicer\run_auth_browser.sh"
+          )
+          foreach ($script in $scripts) {
+              if (!(Test-Path -LiteralPath $script)) {
+                  throw "Missing runtime shell script: $script"
+              }
+              $text = [System.IO.File]::ReadAllText($script)
+              $text = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+              [System.IO.File]::WriteAllText($script, $text, $utf8NoBom)
+              if ([System.IO.File]::ReadAllBytes($script) -contains 0x0D) {
+                  throw "Runtime shell script still contains CR bytes: $script"
+              }
+          }
+
+      - name: Validate bundled Linux runtime package without requiring nested virtualization
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\build\OrcaSlicer\verify_runtime.ps1" -PackageDir "$env:GITHUB_WORKSPACE\build\OrcaSlicer" -PackageOnly
+
+      - name: Create installer Win
+        working-directory: ${{ github.workspace }}/build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          cpack -G NSIS
+          if ($LASTEXITCODE -ne 0) {
+            throw "CPack NSIS failed with exit code $LASTEXITCODE"
+          }
+          $installers = @(Get-ChildItem -LiteralPath . -Filter "OrcaSlicer*.exe" -File)
+          if ($installers.Count -eq 0) {
+            throw "CPack did not create an OrcaSlicer installer"
+          }
+          $installers | ForEach-Object {
+            Write-Host ("Installer: {0} ({1:N0} bytes)" -f $_.FullName, $_.Length)
+          }
+
+      - name: Normalize installer release filename
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $installers = @(Get-ChildItem -LiteralPath "$env:GITHUB_WORKSPACE\build" -Filter "OrcaSlicer*.exe" -File)
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one OrcaSlicer installer, found $($installers.Count)"
+          }
+          $target = Join-Path "$env:GITHUB_WORKSPACE\build" "OrcaSlicerCDS_Windows_Installer_${{ env.ver }}.exe"
+          if ($installers[0].FullName -ne $target) {
+            Move-Item -LiteralPath $installers[0].FullName -Destination $target -Force
+          }
+          if (!(Test-Path -LiteralPath $target)) {
+            throw "Normalized installer was not created: $target"
+          }
+
+      - name: Upload artifacts Win installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: OrcaSlicerCDS_Windows_${{ env.ver }}_installer
+          path: ${{ github.workspace }}/build/OrcaSlicer*.exe
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Pack and verify portable app
+        working-directory: ${{ github.workspace }}/build
+        shell: pwsh
+        timeout-minutes: 90
+        run: |
+          $ErrorActionPreference = "Stop"
+          $sevenZip = "C:\Program Files\7-Zip\7z.exe"
+          $source = Join-Path $env:GITHUB_WORKSPACE "build\OrcaSlicer"
+          $archive = Join-Path $env:GITHUB_WORKSPACE "build\OrcaSlicerCDS_Windows_${{ env.ver }}_portable.zip"
+          if (!(Test-Path -LiteralPath $sevenZip)) {
+            throw "7-Zip was not found: $sevenZip"
+          }
+          if (!(Test-Path -LiteralPath $source)) {
+            throw "Portable source directory was not found: $source"
+          }
+          $sourceBytes = (Get-ChildItem -LiteralPath $source -Recurse -Force -File | Measure-Object -Property Length -Sum).Sum
+          $rootfs = Join-Path $source "windows-wsl2-rootfs.tar"
+          Write-Host ("Portable source: {0:N0} bytes" -f $sourceBytes)
+          if (Test-Path -LiteralPath $rootfs) {
+            Write-Host ("WSL rootfs: {0:N0} bytes" -f (Get-Item -LiteralPath $rootfs).Length)
+          }
+          Get-PSDrive -Name ($env:GITHUB_WORKSPACE.Substring(0, 1)) | Format-List Name,Used,Free
+          Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+          & $sevenZip a -tzip -mx=1 -mmt=on -bso1 -bse1 $archive ".\OrcaSlicer"
+          if ($LASTEXITCODE -ne 0) {
+            throw "7-Zip creation failed with exit code $LASTEXITCODE"
+          }
+          if (!(Test-Path -LiteralPath $archive) -or (Get-Item -LiteralPath $archive).Length -le 0) {
+            throw "Portable archive was not created"
+          }
+          & $sevenZip t -bso1 -bse1 $archive
+          if ($LASTEXITCODE -ne 0) {
+            throw "7-Zip verification failed with exit code $LASTEXITCODE"
+          }
+          Write-Host ("Portable archive: {0:N0} bytes" -f (Get-Item -LiteralPath $archive).Length)
+
+      - name: Upload artifacts Win portable
+        uses: actions/upload-artifact@v7
+        with:
+          name: OrcaSlicerCDS_Windows_${{ env.ver }}_portable
+          path: ${{ github.workspace }}/build/OrcaSlicerCDS_Windows_${{ env.ver }}_portable.zip
+          if-no-files-found: error
+          compression-level: 0
+

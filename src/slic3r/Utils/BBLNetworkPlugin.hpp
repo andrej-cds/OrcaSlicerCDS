@@ -10,6 +10,7 @@
 #include <map>
 #include <functional>
 #include <mutex>
+#include <shared_mutex>
 
 #if defined(_MSC_VER) || defined(_WIN32)
 #include <Windows.h>
@@ -120,6 +121,27 @@ typedef int (*func_get_model_mall_rating_result)(void *agent, int job_id, std::s
 typedef int (*func_get_mw_user_preference)(void *agent, std::function<void(std::string)> callback);
 typedef int (*func_get_mw_user_4ulist)(void *agent, int seed, int limit, std::function<void(std::string)> callback);
 
+typedef std::string (*func_linux_auth_start)(void* agent, std::string login_url);
+typedef std::string (*func_linux_auth_start_v2)(void* agent, std::string login_url, std::string client_version, std::string language, bool dark_mode);
+typedef std::string (*func_linux_auth_status)(void* agent);
+typedef int (*func_linux_auth_cancel)(void* agent);
+typedef std::string (*func_linux_auth_capabilities)();
+typedef std::string (*func_linux_browser_start)(void* agent, std::string url, bool bind_ticket);
+typedef std::string (*func_linux_browser_status)();
+typedef std::string (*func_linux_browser_command)(std::string command_json);
+typedef int (*func_linux_browser_cancel)();
+typedef int (*func_linux_http_get)(std::string url, std::string headers_json, unsigned int* http_status, std::string* body, std::string* error);
+typedef int (*func_linux_http_progress)(void* user, unsigned long long download_total,
+    unsigned long long download_now, unsigned long long upload_total,
+    unsigned long long upload_now, double upload_speed);
+typedef bool (*func_linux_http_cancel)(void* user);
+typedef int (*func_linux_http_request)(std::string method, std::string url, std::string headers_json,
+    std::string request_body, std::string multipart_json, std::string range,
+    unsigned long long max_bytes, long connect_timeout_ms, long timeout_ms,
+    func_linux_http_progress progress_cb, func_linux_http_cancel cancel_cb, void* callback_user,
+    unsigned int* http_status, std::string* response_body, std::string* response_headers,
+    std::string* primary_ip, std::string* error);
+
 // Legacy function pointer types (for the 01.10.01 DLL)
 typedef int (*func_start_print_legacy)(void *agent, PrintParams_Legacy params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn, OnWaitFn wait_fn);
 typedef int (*func_start_local_print_with_record_legacy)(void *agent, PrintParams_Legacy params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn, OnWaitFn wait_fn);
@@ -178,6 +200,32 @@ public:
     // Singleton access
     static BBLNetworkPlugin& instance();
 
+    static int linux_runtime_http_get(
+        const std::string& url,
+        const std::map<std::string, std::string>& headers,
+        unsigned int* http_status,
+        std::string* body,
+        std::string* error);
+
+    static int linux_runtime_http_request(
+        const std::string& method,
+        const std::string& url,
+        const std::vector<std::string>& header_lines,
+        const std::string& request_body,
+        const std::string& multipart_json,
+        const std::string& range,
+        std::size_t max_bytes,
+        long connect_timeout_ms,
+        long timeout_ms,
+        func_linux_http_progress progress_cb,
+        func_linux_http_cancel cancel_cb,
+        void* callback_user,
+        unsigned int* http_status,
+        std::string* response_body,
+        std::string* response_headers,
+        std::string* primary_ip,
+        std::string* error);
+
     // Delete copy/move
     BBLNetworkPlugin(const BBLNetworkPlugin&) = delete;
     BBLNetworkPlugin& operator=(const BBLNetworkPlugin&) = delete;
@@ -208,6 +256,25 @@ public:
      * Must be called during application shutdown before main() returns.
      */
     static void shutdown();
+
+    // Holds the module lifetime lock (shared) for the duration of a plug-in call so that the
+    // library cannot be unloaded while a call is in flight.
+    class ModuleCallGuard {
+    public:
+        ModuleCallGuard(ModuleCallGuard&&) = delete;
+        ModuleCallGuard& operator=(ModuleCallGuard&&) = delete;
+        ModuleCallGuard(const ModuleCallGuard&) = delete;
+        ModuleCallGuard& operator=(const ModuleCallGuard&) = delete;
+        ~ModuleCallGuard();
+
+    private:
+        friend class BBLNetworkPlugin;
+        explicit ModuleCallGuard(std::shared_mutex& mutex);
+        std::shared_mutex* m_mutex{nullptr};
+        bool m_active{false};
+    };
+
+    static ModuleCallGuard lock_module_for_call();
 
     /**
      * Check if DLL is currently loaded.
@@ -417,6 +484,16 @@ public:
     func_get_filament_config get_get_filament_config() const { return m_get_filament_config; }
     func_sync_ams_filaments get_sync_ams_filaments() const { return m_sync_ams_filaments; }
 
+    func_linux_auth_start get_linux_auth_start() const { return m_linux_auth_start; }
+    func_linux_auth_start_v2 get_linux_auth_start_v2() const { return m_linux_auth_start_v2; }
+    func_linux_auth_status get_linux_auth_status() const { return m_linux_auth_status; }
+    func_linux_auth_cancel get_linux_auth_cancel() const { return m_linux_auth_cancel; }
+    func_linux_auth_capabilities get_linux_auth_capabilities() const { return m_linux_auth_capabilities; }
+    func_linux_browser_start get_linux_browser_start() const { return m_linux_browser_start; }
+    func_linux_browser_status get_linux_browser_status() const { return m_linux_browser_status; }
+    func_linux_browser_command get_linux_browser_command() const { return m_linux_browser_command; }
+    func_linux_browser_cancel get_linux_browser_cancel() const { return m_linux_browser_cancel; }
+
     // ========================================================================
     // ABI Conversion Helpers
     // ========================================================================
@@ -427,13 +504,15 @@ public:
 
 private:
     // Singleton instance pointer (heap-allocated for explicit lifetime control)
-    static BBLNetworkPlugin* s_instance;
 
     BBLNetworkPlugin();
     ~BBLNetworkPlugin();
 
     void load_all_function_pointers();
     void clear_all_function_pointers();
+    int unload_unlocked();
+    void* create_agent_unlocked(const std::string& log_dir);
+    int destroy_agent_unlocked();
 
     // Module handles
 #if defined(_MSC_VER) || defined(_WIN32)
@@ -563,6 +642,15 @@ private:
     func_delete_filament_spools m_delete_filament_spools{nullptr};
     func_get_filament_config m_get_filament_config{nullptr};
     func_sync_ams_filaments m_sync_ams_filaments{nullptr};
+    func_linux_auth_start m_linux_auth_start{nullptr};
+    func_linux_auth_start_v2 m_linux_auth_start_v2{nullptr};
+    func_linux_auth_status m_linux_auth_status{nullptr};
+    func_linux_auth_cancel m_linux_auth_cancel{nullptr};
+    func_linux_auth_capabilities m_linux_auth_capabilities{nullptr};
+    func_linux_browser_start m_linux_browser_start{nullptr};
+    func_linux_browser_status m_linux_browser_status{nullptr};
+    func_linux_browser_command m_linux_browser_command{nullptr};
+    func_linux_browser_cancel m_linux_browser_cancel{nullptr};
 };
 
 } // namespace Slic3r

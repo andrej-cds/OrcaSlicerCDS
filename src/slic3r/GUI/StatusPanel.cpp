@@ -5754,7 +5754,7 @@ std::pair<wxStaticBitmap *, ScoreDialog::ImageMsg> ScoreDialog::create_oss_thumb
 
     Slic3r::Http http   = Slic3r::Http::get(oss_path);
     std::string  suffix = oss_path.substr(oss_path.find_last_of(".") + 1);
-    http.header("accept", "image/" + suffix) //"image/" + suffix
+    http.via_linux_runtime().header("accept", "image/" + suffix) //"image/" + suffix
         .header("Accept-Encoding", "gzip")
         .on_complete([this, imageCtrl, time = std::weak_ptr<int>(m_tocken)](std::string body, unsigned int status) {
             if (time.expired()) return;

@@ -683,6 +683,8 @@ public:
     virtual bool OnExceptionInMainLoop() override;
     // Calls wxLaunchDefaultBrowser if user confirms in dialog.
     bool            open_browser_with_warning_dialog(const wxString& url, int flags = 0);
+    bool            is_bambu_web_url(const wxString& url) const;
+    bool            open_bambu_web_page(const wxString& url, bool bind_ticket = false);
 #ifdef __APPLE__
     void            OSXStoreOpenFiles(const wxArrayString &files);
     // wxWidgets override to get an event on open files.
@@ -803,8 +805,9 @@ public:
     void            start_download(std::string url);
 
     std::string     get_plugin_url(std::string name, std::string country_code);
-    int             download_plugin(std::string name, std::string package_name, InstallProgressFn pro_fn = nullptr, WasCancelledFn cancel_fn = nullptr);
-    int             install_plugin(std::string name, std::string package_name, InstallProgressFn pro_fn = nullptr, WasCancelledFn cancel_fn = nullptr);
+    int             download_plugin(std::string name, std::string package_name, InstallProgressFn pro_fn = nullptr, WasCancelledFn cancel_fn = nullptr, std::string* downloaded_version = nullptr);
+    int             install_plugin(std::string name, std::string package_name, InstallProgressFn pro_fn = nullptr, WasCancelledFn cancel_fn = nullptr, const std::string& package_version = {});
+    bool            rollback_network_plugin_payload(std::string* error = nullptr);
     std::string     get_http_url(std::string country_code, std::string path = {});
     std::string     get_model_http_url(std::string country_code);
     bool            use_legacy_network_plugin() const;
