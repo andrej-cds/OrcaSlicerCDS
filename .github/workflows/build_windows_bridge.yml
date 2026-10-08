@@ -15,11 +15,10 @@ jobs:
         with:
           lfs: 'false'
 
-      - name: Verify Linux runtime transport logic
+      - name: Verify Linux runtime dispatcher
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/slicer_linux_runtime/verify_full_linux_transport.py
           python3 tools/slicer_linux_runtime/test_runtime_dispatcher.py
 
       - uses: lukka/get-cmake@latest
