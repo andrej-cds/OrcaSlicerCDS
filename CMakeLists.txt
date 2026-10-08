@@ -899,10 +899,13 @@ if (SLIC3R_STATIC AND NOT SLIC3R_STATIC_EXCLUDE_CURL)
         # As of now, our build system produces a statically linked libcurl,
         # which links the OpenSSL library dynamically.
         find_package(OpenSSL REQUIRED)
-        message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
-        message("OpenSSL libraries: ${OPENSSL_LIBRARIES}")
-        target_include_directories(libcurl SYSTEM INTERFACE ${OPENSSL_INCLUDE_DIR})
-        target_link_libraries(libcurl INTERFACE ${OPENSSL_LIBRARIES})
+        # Static archives are order-sensitive: curl must precede zlib/ssl/crypto.
+        target_link_libraries(libcurl INTERFACE
+            OpenSSL::SSL
+            OpenSSL::Crypto
+            Threads::Threads
+            ${CMAKE_DL_LIBS}
+        )
     endif()
 endif()
 

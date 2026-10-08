@@ -7,7 +7,18 @@
 #include <map>
 #include <vector>
 
+// The standalone Linux runtime host is built without libslic3r (and its Eigen dependency).
+#ifndef SLICER_LINUX_RUNTIME_STANDALONE_HOST
 #include "libslic3r/AppConfig.hpp"
+#else
+#ifndef BAMBU_NETWORK_AGENT_VERSION_LEGACY
+#if defined(_WIN32) || defined(_WIN64)
+#define BAMBU_NETWORK_AGENT_VERSION_LEGACY "01.10.01.09"
+#else
+#define BAMBU_NETWORK_AGENT_VERSION_LEGACY "01.10.01.01"
+#endif
+#endif
+#endif
 extern std::string g_log_folder;
 extern std::string g_log_start_time;
 
@@ -563,5 +574,7 @@ enum class MessageFlag : int
 };
 
 }
+
+namespace BBL = Slic3r;
 
 #endif
