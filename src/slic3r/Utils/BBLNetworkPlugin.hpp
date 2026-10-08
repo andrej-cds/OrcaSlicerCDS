@@ -511,6 +511,8 @@ private:
     void load_all_function_pointers();
     void clear_all_function_pointers();
     int unload_unlocked();
+    int active_source_tunnels() const;
+    int active_forwarder_callbacks() const;
     void* create_agent_unlocked(const std::string& log_dir);
     int destroy_agent_unlocked();
 

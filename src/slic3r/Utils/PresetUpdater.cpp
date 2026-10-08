@@ -54,6 +54,7 @@
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/Utils/Http.hpp"
 #include "slic3r/Utils/bambu_networking.hpp"
+#include "slic3r/Utils/BBLNetworkPlugin.hpp"
 #include "slic3r/Config/Version.hpp"
 #include "slic3r/GUI/MarkdownTip.hpp"
 #include "libslic3r/miniz_extension.hpp"
@@ -814,7 +815,7 @@ void PresetUpdater::priv::sync_tooltip(std::string http_url, std::string languag
 bool PresetUpdater::priv::get_cached_plugins_version(std::string& cached_version, bool &force)
 {
     // The OTA plugin cache lives in ota/plugins.
-    auto cache_folder = cache_path / PLUGINS_SUBPATH;
+    auto cache_folder = cache_path / "plugins";
     std::string network_library, player_library, live555_library;
     bool has_plugins = false;
 
@@ -923,7 +924,7 @@ void PresetUpdater::priv::sync_plugins(std::string http_url, std::string plugin_
         }
 
         if (need_delete_cache) {
-            auto cache_plugin_folder = cache_path / PLUGINS_SUBPATH;
+            auto cache_plugin_folder = cache_path / "plugins";
             BOOST_LOG_TRIVIAL(info) << "[remove_old_networking_plugins] remove the plugins directory " << cache_plugin_folder.string();
             try {
                 fs::remove_all(cache_plugin_folder);
@@ -946,7 +947,7 @@ void PresetUpdater::priv::sync_plugins(std::string http_url, std::string plugin_
     }
 #endif
     try {
-        auto cache_plugin_folder = cache_path / PLUGINS_SUBPATH;
+        auto cache_plugin_folder = cache_path / "plugins";
         std::map<std::string, Resource> resources
         {
             {"slicer/plugins/cloud", { using_version, "", "", false, cache_plugin_folder.string()}}

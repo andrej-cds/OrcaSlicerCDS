@@ -4526,18 +4526,6 @@ bool GUI_App::on_init_network(bool try_backup)
                     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": incompatible network module, update required";
                     mark_networking_need_update();
                 }
-            } else {
-                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": network module load failed";
-                const std::string latest = get_latest_network_version();
-                if (config_version != latest && BBLNetworkPlugin::versioned_library_exists(latest)) {
-                    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": falling back to installed " << latest;
-                    config_version = latest;
-                    app_config->set_network_plugin_version(latest);
-                    app_config->save();
-                    load_agent_dll = Slic3r::NetworkAgent::initialize_network_module(false, config_version);
-                    goto __retry;
-                }
-            }
         } else {
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": on_init_network, load dll failed";
             // A failed install can leave the config naming a build that never made it to disk;
