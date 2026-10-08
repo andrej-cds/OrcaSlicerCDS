@@ -1,0 +1,19 @@
+{
+	"type": "machine",
+	"name": "WonderMaker ZR Ultra S 0.6 nozzle",
+	"inherits": "WonderMaker ZR Ultra 0.6 nozzle",
+	"from": "system",
+	"setting_id": "xuJnOPTmSW1BMo6p",
+	"instantiation": "true",
+	"printer_model": "WonderMaker ZR Ultra S",
+	"nozzle_diameter": [
+		"0.6",
+		"0.6",
+		"0.6",
+		"0.6"
+	],
+	"default_print_profile": "0.30mm Standard @WonderMaker ZR Ultra 0.6 nozzle",
+	"printer_variant": "0.6",
+	"support_air_filtration": "1",
+	"support_chamber_temp_control": "1"
+}

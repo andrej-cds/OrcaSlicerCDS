@@ -1,0 +1,8 @@
+{
+	"type": "filament",
+	"name": "Snapmaker TPU @base",
+	"inherits": "fdm_filament_tpu",
+	"from": "system",
+	"filament_id": "OF65InrS",
+	"instantiation": "false"
+}

@@ -1,0 +1,35 @@
+{
+	"type": "filament",
+	"name": "Snapmaker Dual PLA @base",
+	"inherits": "fdm_filament_pla",
+	"from": "system",
+	"filament_id": "OFZivHGL",
+	"instantiation": "false",
+	"filament_retraction_length": [
+		"nil"
+	],
+	"filament_loading_speed_start": [
+		"35"
+	],
+	"filament_loading_speed": [
+		"35"
+	],
+	"filament_unloading_speed_start": [
+		"35"
+	],
+	"filament_unloading_speed": [
+		"35"
+	],
+	"filament_cooling_moves": [
+		"2"
+	],
+	"filament_cooling_initial_speed": [
+		"35"
+	],
+	"filament_cooling_final_speed": [
+		"60"
+	],
+	"nozzle_temperature": [
+		"220"
+	]
+}

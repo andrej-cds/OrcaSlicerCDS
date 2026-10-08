@@ -1,0 +1,119 @@
+#ifndef slic3r_Project_hpp_
+#define slic3r_Project_hpp_
+
+#include "wx/artprov.h"
+#include "wx/cmdline.h"
+#include "wx/notifmsg.h"
+#include "wx/settings.h"
+#include "wx/webview.h"
+#include <wx/setup.h>
+#include <string>
+#include "slic3r/GUI/StagedBuild.hpp"
+#include <wx/string.h>
+#include <wx/bookctrl.h>
+#include <wx/gdicmn.h>
+#include <wx/event.h>
+
+#if wxUSE_WEBVIEW_EDGE
+#include "wx/msw/webview_edge.h"
+#endif
+
+#include "wx/numdlg.h"
+#include "wx/infobar.h"
+#include "wx/filesys.h"
+#include "wx/fs_arc.h"
+#include "wx/fs_mem.h"
+#include "wx/stdpaths.h"
+#include <wx/panel.h>
+#include <wx/tbarbase.h>
+#include "wx/textctrl.h"
+#include <wx/timer.h>
+
+#include "nlohmann/json.hpp"
+
+#include <atomic>
+#include <map>
+#include <vector>
+#include <memory>
+#include <boost/thread.hpp>
+#include "Lazy.hpp"
+
+class wxWebView;
+class wxWebViewEvent;
+class wxWindow;
+namespace Slic3r::GUI { class AuxiliaryPanel; }
+namespace boost { class thread; }
+
+#define AUFILE_GREY700 wxColour(107, 107, 107)
+#define AUFILE_GREY500 wxColour(158, 158, 158)
+#define AUFILE_GREY300 wxColour(238, 238, 238)
+#define AUFILE_GREY200 wxColour(248, 248, 248)
+#define AUFILE_BRAND wxColour(0, 150, 136)
+#define AUFILE_BRAND_TRANSPARENT wxColour("#E5F0EE") // ORCA color with %10 opacity
+//#define AUFILE_PICTURES_SIZE wxSize(FromDIP(300), FromDIP(300))
+//#define AUFILE_PICTURES_PANEL_SIZE wxSize(FromDIP(300), FromDIP(340))
+#define AUFILE_PICTURES_SIZE wxSize(FromDIP(168), FromDIP(168))
+#define AUFILE_PICTURES_PANEL_SIZE wxSize(FromDIP(168), FromDIP(208))
+#define AUFILE_SIZE wxSize(FromDIP(168), FromDIP(168))
+#define AUFILE_PANEL_SIZE wxSize(FromDIP(168), FromDIP(208))
+#define AUFILE_TEXT_HEIGHT FromDIP(40)
+#define AUFILE_ROUNDING FromDIP(5)
+
+namespace Slic3r { namespace GUI {
+
+struct project_file{
+    std::string filepath;
+    std::string filename;
+    std::string size;
+};
+
+class ProjectPanel : public wxPanel, public StagedBuild, public LazyInstance<ProjectPanel>
+{
+private:
+    std::atomic<bool> m_web_init_completed{false};
+
+    std::shared_ptr<std::atomic<bool>> m_reload_cancel_token{std::make_shared<std::atomic<bool>>(false)};
+    std::unique_ptr<boost::thread> m_reload_task;
+
+    wxWebView* m_browser = {nullptr};
+    AuxiliaryPanel*   m_auxiliary{nullptr};
+    wxString   m_project_home_url;
+    wxString   m_root_dir;
+    // Last show_3mf_info script, also sent whenever the page asks for it.
+    std::string m_info_script;
+    bool       m_reset_on_show{false};
+    static inline std::atomic<int> m_sequence_id{8000};
+
+    void show_info_editor(bool show);
+    void create_browser();
+    void reset_browser();
+    
+
+public:
+    ProjectPanel(wxWindow *parent, wxWindowID id = wxID_ANY, const wxPoint &pos = wxDefaultPosition, const wxSize &size = wxDefaultSize, long style = wxTAB_TRAVERSAL);
+    ~ProjectPanel();
+    void shutdown();
+
+    
+    void onWebNavigating(wxWebViewEvent& evt);
+    void on_reload(wxCommandEvent& evt);
+    void on_size(wxSizeEvent &event);
+    void on_navigated(wxWebViewEvent& event);
+   
+    void msw_rescale();
+    void update_model_data();
+    void clear_model_info();
+
+    bool Show(bool show);
+    void OnScriptMessage(wxWebViewEvent& evt);
+    void RunScript(std::string content);
+
+    std::map<std::string, std::vector<nlohmann::json>> Reload(wxString aux_path);
+    std::string formatBytes(unsigned long bytes);
+    wxString to_base64(std::string path);
+};
+
+wxDECLARE_EVENT(EVT_PROJECT_RELOAD, wxCommandEvent);
+}} // namespace Slic3r::GUI
+
+#endif

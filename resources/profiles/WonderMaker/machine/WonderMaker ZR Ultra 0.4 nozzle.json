@@ -1,0 +1,17 @@
+{
+	"type": "machine",
+	"name": "WonderMaker ZR Ultra 0.4 nozzle",
+	"inherits": "fdm_ultra_common",
+	"from": "system",
+	"setting_id": "xJBdCljSZVDINXnP",
+	"instantiation": "true",
+	"printer_model": "WonderMaker ZR Ultra",
+	"default_print_profile": "0.20mm Standard @WonderMaker ZR Ultra",
+	"default_bed_type": "4",
+	"nozzle_diameter": [
+		"0.4",
+		"0.4",
+		"0.4",
+		"0.4"
+	]
+}

@@ -1,0 +1,30 @@
+{
+  "type": "machine",
+  "name": "UltiMaker 2 0.4 nozzle",
+  "inherits": "fdm_machine_common",
+  "from": "system",
+  "setting_id": "Jl8sUeuACVyrnrst",
+  "instantiation": "true",
+
+  "printer_model": "UltiMaker 2",
+  "default_print_profile": "0.15mm Standard @UltiMaker 2",
+  "nozzle_diameter": [
+    "0.4"
+  ],
+  "printable_area": [
+    "0x0",
+    "223x0",
+    "223x223",
+    "0x223"
+  ],
+  "printable_height": "205",
+  "nozzle_type": "undefine",
+  "default_filament_profile": [
+    "Generic PLA @UltiMaker 2 0.4 nozzle"
+  ],
+  "scan_first_layer": "0",
+  "printer_variant": "0.4",
+  "extruder_clearance_radius": "65",
+  "extruder_clearance_height_to_rod": "36",
+  "extruder_clearance_height_to_lid": "140"
+}

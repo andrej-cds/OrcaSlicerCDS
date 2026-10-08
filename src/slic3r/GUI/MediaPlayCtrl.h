@@ -1,0 +1,149 @@
+//
+//  MediaPlayCtrl.h
+//  libslic3r_gui
+//
+//  Created by cmguo on 2021/12/7.
+//
+
+#ifndef MediaPlayCtrl_h
+#define MediaPlayCtrl_h
+
+#include "WebRtcMediaController.hpp"
+#include "slic3r/Utils/IPrinterAgent.hpp"
+
+#include <wx/gdicmn.h>
+#include <wx/mediactrl.h>
+#include <wx/event.h>
+#include <string>
+#include <memory>
+#include <cstdint>
+#include <vector>
+#include <wx/datetime.h>
+#include <wx/panel.h>
+
+#include <boost/thread.hpp>
+#include <boost/thread/condition_variable.hpp>
+
+#include <deque>
+#include <set>
+#include <wx/string.h>
+
+class wxMediaCtrl3;
+class wxShowEvent;
+class wxWindow;
+namespace Slic3r::GUI { class IMediaController; }
+
+class Button;
+class Label;
+
+namespace Slic3r {
+
+class MachineObject;
+
+namespace GUI {
+
+class MediaPlayCtrl : public wxPanel
+{
+public:
+    MediaPlayCtrl(wxWindow *parent, wxMediaCtrl3 *media_ctrl, const wxPoint &pos = wxDefaultPosition, const wxSize &size = wxDefaultSize);
+
+    ~MediaPlayCtrl();
+
+    void SetMachineObject(MachineObject * obj);
+
+    void SetWebMediaController(IMediaController *ctrl);
+
+    void StopWebStream();
+
+    bool IsStreaming() const;
+
+    void ToggleStream();
+
+    void msw_rescale();
+
+    void jump_to_play();
+
+protected:
+    void onStateChanged(wxMediaEvent & event);
+
+    void Play();
+
+    void Stop(wxString const &msg = {}, wxString const &msg2 = {});
+
+    void TogglePlay();
+
+    void SetStatus(wxString const &msg, bool hyperlink = true);
+    void on_webrtc_status(WebRtcMediaController::Status status);
+
+private:
+    void load();
+
+    void on_show_hide(wxShowEvent & evt);
+
+    void media_proc();
+
+    static bool start_stream_service(bool *need_install = nullptr);
+
+    static bool get_stream_url(std::string *url = nullptr);
+
+    CameraStreamMode current_mode() const;
+    void set_active_media_controller(CameraStreamMode mode);
+
+private:
+    static inline const wxMediaState MEDIASTATE_IDLE = static_cast<wxMediaState>(3);
+    static inline const wxMediaState MEDIASTATE_INITIALIZING = static_cast<wxMediaState>(4);
+    static inline const wxMediaState MEDIASTATE_LOADING = static_cast<wxMediaState>(5);
+    static inline const wxMediaState MEDIASTATE_BUFFERING = static_cast<wxMediaState>(6);
+
+    // token
+    std::shared_ptr<int> m_token = std::make_shared<int>(0);
+
+    wxMediaCtrl3 * m_media_ctrl;
+    IMediaController * m_active_media_controller = nullptr;
+    IMediaController * m_web_ctrl = nullptr;
+    std::unique_ptr<WebRtcMediaController> m_webrtc_ctrl;
+    CameraStreamMode m_last_mode = CameraStreamMode::none;
+    std::uint64_t m_webrtc_epoch = 0;
+    std::string m_agent_camera_url;
+    bool m_web_user_stopped = false;
+    wxMediaState m_last_state = MEDIASTATE_IDLE;
+    std::string m_machine;
+    int m_lan_proto = 0;
+    std::string m_lan_ip;
+    std::string m_lan_user;
+    std::string m_lan_passwd;
+    std::string m_dev_ver;
+    std::string m_tutk_state;
+    bool m_camera_exists = false;
+    bool m_lan_mode = false;
+    int m_remote_proto = 0;
+    bool m_device_busy = false;
+    bool m_disable_lan = false;
+    wxString m_url;
+
+    struct MediaTask {
+        wxString command;
+        IMediaController *controller = nullptr;
+    };
+    std::deque<MediaTask> m_tasks;
+    boost::mutex m_mutex;
+    boost::condition_variable m_cond;
+    boost::thread m_thread;
+
+    bool m_streaming = false;
+    bool m_user_triggered = false;
+    int m_failed_retry = 0;
+    int m_failed_code = 0;
+    std::vector<double> m_stat;
+    std::set<int> m_last_failed_codes;
+    wxDateTime    m_last_user_play;
+    wxDateTime    m_next_retry;
+
+    ::Button *m_button_play;
+    ::Label * m_label_stat;
+    ::Label * m_label_status;
+};
+
+}}
+
+#endif /* MediaPlayCtrl_h */

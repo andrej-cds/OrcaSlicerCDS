@@ -1,0 +1,46 @@
+#ifndef slic3r_GUI_RecenterDialog_hpp_
+#define slic3r_GUI_RecenterDialog_hpp_
+
+#include "GUI_Utils.hpp"
+#include "slic3r/GUI/wxExtensions.hpp"
+#include <wx/event.h>
+#include <wx/dc.h>
+#include <wx/gdicmn.h>
+#include <wx/statbmp.h>
+#include <wx/stattext.h>
+#include <wx/string.h>
+#include <wx/toplevel.h>
+
+class wxCommandEvent;
+class wxDC;
+class wxPaintEvent;
+class wxWindow;
+
+namespace Slic3r { namespace GUI {
+class RecenterDialog : public DPIDialog
+{
+private:
+    ScalableBitmap  m_home_bmp;
+    wxString hint1;
+    wxString hint2;
+
+    void init_bitmap();
+    void OnPaint(wxPaintEvent& event);
+    void render(wxDC& dc);
+    void on_button_confirm(wxCommandEvent& event);
+    void on_button_close(wxCommandEvent& event);
+    void on_dpi_changed(const wxRect& suggested_rect) override;
+
+public:
+    RecenterDialog(wxWindow* parent,
+        wxWindowID      id = wxID_ANY,
+        const wxString& title = wxEmptyString,
+        const wxPoint& pos = wxDefaultPosition,
+        const wxSize& size = wxDefaultSize,
+        long            style = wxCLOSE_BOX | wxCAPTION);
+
+    ~RecenterDialog();
+};
+}} // namespace Slic3r::GUI
+
+#endif
