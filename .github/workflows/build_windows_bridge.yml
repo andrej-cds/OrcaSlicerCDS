@@ -216,7 +216,17 @@ jobs:
       - name: Build slicer Win
         working-directory: ${{ github.workspace }}
         shell: pwsh
-        run: .\build_win.bat -s -i --arch x64 --msvc --msbuild --build-dir build
+        run: |
+          .\build_win.bat -s -i --arch x64 --msvc --msbuild --build-dir build 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\slicer_build.log"
+          $rc = $LASTEXITCODE
+          if ($rc -ne 0) {
+            $errs = Select-String -Path "$env:RUNNER_TEMP\slicer_build.log" -Pattern 'error C\d+|error LNK\d+|fatal error|: error ' | Select-Object -First 12
+            foreach ($e in $errs) {
+              $t = $e.Line.Trim(); if ($t.Length -gt 380) { $t = $t.Substring(0,380) }
+              Write-Host "::error title=compile-error::$t"
+            }
+            exit $rc
+          }
 
 
       - name: Build system preset cache (Windows)
