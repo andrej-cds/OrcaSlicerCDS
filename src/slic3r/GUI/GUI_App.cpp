@@ -4547,6 +4547,7 @@ bool GUI_App::on_init_network(bool try_backup)
                 m_networking_need_update = true;
             }
         }
+        }
     }
 
     if (create_network_agent) {
