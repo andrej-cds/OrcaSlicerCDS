@@ -208,16 +208,31 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value $nsisBin
           & $makensis /VERSION
 
+      - name: Restore Windows deps cache
+        id: deps_cache
+        uses: actions/cache/restore@v5
+        with:
+          path: deps_cache
+          key: win-deps-x64-v1-${{ hashFiles('deps/**/CMakeLists.txt', 'deps/**/*.cmake', 'deps/**/*.patch') }}
+
       - name: Build Windows deps
+        if: steps.deps_cache.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace }}
         shell: pwsh
-        run: .\build_win.bat -d --arch x64 --msvc --msbuild
+        run: .\build_win.bat -d --arch x64 --msvc --msbuild --deps-dir "$env:GITHUB_WORKSPACE\deps_cache"
+
+      - name: Save Windows deps cache
+        if: steps.deps_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: deps_cache
+          key: win-deps-x64-v1-${{ hashFiles('deps/**/CMakeLists.txt', 'deps/**/*.cmake', 'deps/**/*.patch') }}
 
       - name: Build slicer Win
         working-directory: ${{ github.workspace }}
         shell: pwsh
         run: |
-          .\build_win.bat -s -i --arch x64 --msvc --msbuild --build-dir build 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\slicer_build.log"
+          .\build_win.bat -s -i --arch x64 --msvc --msbuild --build-dir build --deps-dir "$env:GITHUB_WORKSPACE\deps_cache" 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\slicer_build.log"
           $rc = $LASTEXITCODE
           if ($rc -ne 0) {
             $errs = Select-String -Path "$env:RUNNER_TEMP\slicer_build.log" -Pattern 'error C\d+|error LNK\d+|fatal error|: error ' | Select-Object -First 12
