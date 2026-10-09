@@ -25,7 +25,7 @@ if (WIN32)
         ${CMAKE_CURRENT_LIST_DIR}/SlicerLinuxRuntimeLauncher_win.cpp
     )
     target_include_directories(slicer_linux_runtime PRIVATE ${SLICER_LINUX_RUNTIME_INCLUDE_DIRS})
-    target_compile_definitions(slicer_linux_runtime PRIVATE SLICER_LINUX_RUNTIME_LIGHTWEIGHT_TASKS=1 BAMBU_EXPORTS)
+    target_compile_definitions(slicer_linux_runtime PRIVATE SLICER_LINUX_RUNTIME_LIGHTWEIGHT_TASKS=1 BAMBU_EXPORTS __TBB_NO_IMPLICIT_LINKAGE=1)
     target_link_libraries(slicer_linux_runtime PRIVATE
         boost_headeronly
         boost_libs
