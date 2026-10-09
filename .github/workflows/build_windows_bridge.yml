@@ -59,7 +59,7 @@ jobs:
           cmake -S . -B build -G "Ninja Multi-Config" -DORCA_TOOLS=ON -DBBL_RELEASE_TO_PUBLIC=1 -DBBL_INTERNAL_TESTING=0
 
       - name: Cache WSL rootfs
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: tools/slicer_linux_runtime/rootfs/windows-wsl2-rootfs.tar
           key: wsl-rootfs-ubuntu-24.04-v6-${{ hashFiles('tools/slicer_linux_runtime/rootfs/build_windows_wsl_rootfs.sh', 'tools/slicer_linux_runtime/rootfs/prepare_windows_wsl_rootfs.sh', 'tools/slicer_linux_runtime/rootfs/validate_windows_wsl_rootfs.py') }}
@@ -210,7 +210,7 @@ jobs:
 
       - name: Restore Windows deps cache
         id: deps_cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: deps_cache
           key: win-deps-x64-v1-${{ hashFiles('deps/**/CMakeLists.txt', 'deps/**/*.cmake', 'deps/**/*.patch') }}
@@ -223,7 +223,7 @@ jobs:
 
       - name: Save Windows deps cache
         if: steps.deps_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: deps_cache
           key: win-deps-x64-v1-${{ hashFiles('deps/**/CMakeLists.txt', 'deps/**/*.cmake', 'deps/**/*.patch') }}
