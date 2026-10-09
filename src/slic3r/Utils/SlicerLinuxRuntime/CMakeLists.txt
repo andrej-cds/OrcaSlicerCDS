@@ -50,6 +50,9 @@ else()
     target_link_libraries(slicer_linux_runtime PRIVATE boost_headeronly boost_libs OpenSSL::Crypto)
 endif()
 
+# bambu_networking.hpp pulls in libslic3r/AppConfig.hpp -> Point.hpp -> Eigen
+target_link_libraries(slicer_linux_runtime PRIVATE Eigen3::Eigen)
+
 set_target_properties(slicer_linux_runtime PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
