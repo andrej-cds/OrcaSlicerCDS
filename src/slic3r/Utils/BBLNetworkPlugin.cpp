@@ -623,10 +623,7 @@ int BBLNetworkPlugin::unload_unlocked()
         BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": main-thread callbacks are still queued";
         return -4;
     }
-    if (!UnloadFTModule()) {
-        BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": file-transfer objects are still active";
-        return -2;
-    }
+    UnloadFTModule();
 
     if (m_networking_module) {
         using forwarder_shutdown_fn = void (*)();
