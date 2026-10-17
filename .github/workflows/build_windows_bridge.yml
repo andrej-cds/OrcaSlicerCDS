@@ -110,6 +110,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 360
     needs: prepare_slicer_linux_runtime
+    permissions:
+      contents: write
     env:
       ORCA_UPDATER_SIG_KEY: ${{ secrets.ORCA_UPDATER_SIG_KEY }}
 
@@ -364,3 +366,16 @@ jobs:
           retention-days: 3
           compression-level: 0
 
+      - name: Publish private draft release (backup, visible to repo owner only)
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "build-${{ github.run_number }}"
+          $inst = Join-Path $env:GITHUB_WORKSPACE "build\OrcaSlicerCDS_Windows_Installer_${{ env.ver }}.exe"
+          $port = Join-Path $env:GITHUB_WORKSPACE "build\OrcaSlicerCDS_Windows_${{ env.ver }}_portable.zip"
+          gh release create $tag $inst $port --draft --target "${{ github.sha }}" --title "Build ${{ github.run_number }} (${{ env.ver }})" --notes "Automatic draft release (not public)."
+          # keep only the 2 newest draft releases
+          $old = gh release list --limit 50 --json tagName,isDraft,createdAt | ConvertFrom-Json | Where-Object { $_.isDraft } | Sort-Object createdAt -Descending | Select-Object -Skip 2
+          foreach ($r in $old) { gh release delete $r.tagName --yes --cleanup-tag }
