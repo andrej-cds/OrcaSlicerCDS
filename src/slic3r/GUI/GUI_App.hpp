@@ -29,6 +29,7 @@
 #include "slic3r/Utils/CloudProvider.hpp"
 #include "slic3r/GUI/Jobs/UpgradeNetworkJob.hpp"
 #include "slic3r/GUI/HttpServer.hpp"
+#include "slic3r/GUI/ControlServer.hpp"
 #include "../Utils/PrintHost.hpp"
 
 #include <vector>
@@ -363,6 +364,7 @@ private:
     bool             m_show_error_msgdlg{false};
     wxString         m_info_dialog_content;
     HttpServer       m_http_server;
+    ControlServer    m_control_server; // OrcaSlicerCDS: local control server (127.0.0.1 only)
     bool             m_show_gcode_window{true};
     boost::thread    m_check_network_thread;
 public:

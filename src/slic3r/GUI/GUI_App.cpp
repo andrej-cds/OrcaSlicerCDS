@@ -1203,6 +1203,11 @@ void GUI_App::post_init()
         }
     }
     BOOST_LOG_TRIVIAL(info) << "finished post_init";
+
+    // OrcaSlicerCDS: local control server for tools such as Claude (127.0.0.1 only, token protected).
+    // Can be switched off with "control_server" = "false" in the app config.
+    if (app_config->get("control_server") != "false")
+        m_control_server.start();
 //BBS: remove the single instance currently
 #ifdef _WIN32
     // Sets window property to mainframe so other instances can indentify it.
