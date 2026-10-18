@@ -401,6 +401,13 @@ struct ControlServer::Impl
     tcp::acceptor    acceptor{io};
 };
 
+ControlServer::ControlServer() = default;
+
+ControlServer::~ControlServer()
+{
+    stop();
+}
+
 bool ControlServer::start()
 {
     if (m_running)

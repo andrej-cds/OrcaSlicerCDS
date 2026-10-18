@@ -22,8 +22,8 @@ class ControlServer
 public:
     static constexpr unsigned short DEFAULT_PORT = 13620;
 
-    ControlServer()  = default;
-    ~ControlServer() { stop(); }
+    ControlServer();
+    ~ControlServer();
 
     // Starts listening (tries DEFAULT_PORT and the next few ports). Returns false on failure.
     bool start();
