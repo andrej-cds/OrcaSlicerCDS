@@ -1,6 +1,7 @@
 #include "wxMediaCtrl3.h"
 #include "AVVideoDecoder.hpp"
 #include <algorithm>
+#include <cmath>
 #include <boost/log/trivial.hpp>
 #include "slic3r/GUI/Printer/BambuTunnel.h"
 #include <cassert>
@@ -37,6 +38,12 @@ BEGIN_EVENT_TABLE(wxMediaCtrl3, wxWindow)
 
 // catch paint events
 EVT_PAINT(wxMediaCtrl3::paintEvent)
+EVT_MOUSEWHEEL(wxMediaCtrl3::onMouseWheel)
+EVT_LEFT_DOWN(wxMediaCtrl3::onLeftDown)
+EVT_LEFT_UP(wxMediaCtrl3::onLeftUp)
+EVT_MOTION(wxMediaCtrl3::onMouseMove)
+EVT_LEFT_DCLICK(wxMediaCtrl3::onLeftDClick)
+EVT_MOUSE_CAPTURE_LOST(wxMediaCtrl3::onCaptureLost)
 
 END_EVENT_TABLE()
 
@@ -135,6 +142,7 @@ void wxMediaCtrl3::SetExternalFrame(const wxBitmap& frame, wxSize videoSize)
 
 void wxMediaCtrl3::BeginExternalStream()
 {
+    CallAfter([this] { ResetZoom(); });
     std::unique_lock<std::mutex> lk(m_mutex);
     m_external = true;
     m_url.reset();
@@ -210,23 +218,134 @@ void wxMediaCtrl3::paintEvent(wxPaintEvent &evt)
     std::unique_lock<std::mutex> lk(m_mutex);
     if (!m_frame.IsOk())
         return;
-    auto size2 = m_frame.GetSize();
-    if (size2.x != m_frame_size.x && size2.y == m_frame_size.y)
-        size2.x = m_frame_size.x;
-    auto size3 = (size - size2) / 2;
-    if (size2.x != size.x && size2.y != size.y) {
-        double scale = 1.;
-        if (size.x * size2.y > size.y * size2.x) {
-            size3 = {size.x * size2.y / size.y, size2.y};
-            scale = double(size.y) / size2.y;
-        } else {
-            size3 = {size2.x, size.y * size2.x / size.x};
-            scale = double(size.x) / size2.x;
-        }
-        dc.SetUserScale(scale, scale);
-        size3 = (size3 - size2) / 2;
+    auto img = m_frame.GetSize();
+    if (img.x != m_frame_size.x && img.y == m_frame_size.y)
+        img.x = m_frame_size.x;
+    if (img.x <= 0 || img.y <= 0)
+        return;
+    // Fit the frame into the window, then apply the user zoom and pan.
+    const double fit = std::min(double(size.x) / img.x, double(size.y) / img.y);
+    const double s   = fit * m_zoom;
+    double       px  = m_pan.m_x;
+    double       py  = m_pan.m_y;
+    if (m_zoom <= 1.0) {
+        px = 0.0;
+        py = 0.0;
+    } else {
+        // keep the image covering the window
+        const double maxx = std::max(0.0, (img.x * s - size.x) / 2.0);
+        const double maxy = std::max(0.0, (img.y * s - size.y) / 2.0);
+        px = std::max(-maxx, std::min(maxx, px));
+        py = std::max(-maxy, std::min(maxy, py));
     }
-    dc.DrawBitmap(m_frame, size3.x, size3.y);
+    const double ox = size.x / 2.0 - img.x * s / 2.0 + px;
+    const double oy = size.y / 2.0 - img.y * s / 2.0 + py;
+    dc.SetUserScale(s, s);
+    dc.DrawBitmap(m_frame, wxRound(ox / s), wxRound(oy / s));
+}
+
+void wxMediaCtrl3::ResetZoom()
+{
+    m_zoom = 1.0;
+    m_pan  = wxPoint2DDouble(0.0, 0.0);
+    SetCursor(wxNullCursor);
+    Refresh();
+}
+
+void wxMediaCtrl3::ClampPan()
+{
+    wxSize img;
+    {
+        std::unique_lock<std::mutex> lk(m_mutex);
+        if (!m_frame.IsOk())
+            return;
+        img = m_frame.GetSize();
+    }
+    auto size = GetSize();
+    if (img.x <= 0 || img.y <= 0 || size.x <= 0 || size.y <= 0)
+        return;
+    if (m_zoom <= 1.0) {
+        m_pan = wxPoint2DDouble(0.0, 0.0);
+        return;
+    }
+    const double s    = std::min(double(size.x) / img.x, double(size.y) / img.y) * m_zoom;
+    const double maxx = std::max(0.0, (img.x * s - size.x) / 2.0);
+    const double maxy = std::max(0.0, (img.y * s - size.y) / 2.0);
+    m_pan.m_x = std::max(-maxx, std::min(maxx, m_pan.m_x));
+    m_pan.m_y = std::max(-maxy, std::min(maxy, m_pan.m_y));
+}
+
+void wxMediaCtrl3::onMouseWheel(wxMouseEvent &evt)
+{
+    const int rot = evt.GetWheelRotation();
+    if (rot == 0) {
+        evt.Skip();
+        return;
+    }
+    const double steps  = double(rot) / std::max(1, evt.GetWheelDelta());
+    const double z_old  = m_zoom;
+    const double z_new  = std::max(1.0, std::min(12.0, z_old * std::pow(1.2, steps)));
+    if (z_new == z_old)
+        return;
+    // keep the image point under the cursor fixed
+    const auto   size = GetSize();
+    const double cx   = evt.GetX() - size.x / 2.0;
+    const double cy   = evt.GetY() - size.y / 2.0;
+    m_pan.m_x = cx - (cx - m_pan.m_x) * (z_new / z_old);
+    m_pan.m_y = cy - (cy - m_pan.m_y) * (z_new / z_old);
+    m_zoom    = z_new;
+    ClampPan();
+    SetCursor(m_zoom > 1.0 ? wxCursor(wxCURSOR_HAND) : wxNullCursor);
+    Refresh();
+}
+
+void wxMediaCtrl3::onLeftDown(wxMouseEvent &evt)
+{
+    if (m_zoom > 1.0) {
+        m_dragging   = true;
+        m_drag_start = evt.GetPosition();
+        m_drag_pan   = m_pan;
+        if (!HasCapture())
+            CaptureMouse();
+    } else {
+        evt.Skip();
+    }
+}
+
+void wxMediaCtrl3::onMouseMove(wxMouseEvent &evt)
+{
+    if (m_dragging && evt.LeftIsDown()) {
+        m_pan.m_x = m_drag_pan.m_x + (evt.GetX() - m_drag_start.x);
+        m_pan.m_y = m_drag_pan.m_y + (evt.GetY() - m_drag_start.y);
+        ClampPan();
+        Refresh();
+    } else {
+        evt.Skip();
+    }
+}
+
+void wxMediaCtrl3::onLeftUp(wxMouseEvent &evt)
+{
+    if (m_dragging) {
+        m_dragging = false;
+        if (HasCapture())
+            ReleaseMouse();
+    } else {
+        evt.Skip();
+    }
+}
+
+void wxMediaCtrl3::onCaptureLost(wxMouseCaptureLostEvent &)
+{
+    m_dragging = false;
+}
+
+void wxMediaCtrl3::onLeftDClick(wxMouseEvent &evt)
+{
+    if (m_zoom > 1.0)
+        ResetZoom();
+    else
+        evt.Skip();
 }
 
 void wxMediaCtrl3::DoSetSize(int x, int y, int width, int height, int sizeFlags)

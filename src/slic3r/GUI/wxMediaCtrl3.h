@@ -15,6 +15,9 @@
 #include <memory>
 #include <mutex>
 #include <cstdint>
+#include <wx/window.h>
+#include <wx/event.h>
+#include <wx/geometry.h>
 #include "wx/window.h"
 #include "wx/bitmap.h"
 #include "wx/uri.h"
@@ -70,6 +73,16 @@ protected:
 
     void paintEvent(wxPaintEvent &evt);
 
+    // OrcaSlicerCDS: mouse wheel zoom (around the cursor), drag to pan, double click to reset.
+    void onMouseWheel(wxMouseEvent &evt);
+    void onLeftDown(wxMouseEvent &evt);
+    void onLeftUp(wxMouseEvent &evt);
+    void onMouseMove(wxMouseEvent &evt);
+    void onLeftDClick(wxMouseEvent &evt);
+    void onCaptureLost(wxMouseCaptureLostEvent &evt);
+    void ResetZoom();
+    void ClampPan();
+
     wxSize DoGetBestSize() const override;
 
     void DoSetSize(int x, int y, int width, int height, int sizeFlags) override;
@@ -104,6 +117,14 @@ private:
     std::condition_variable m_cond;
     std::thread m_thread;
     std::atomic_bool m_refresh_pending{false};
+
+    // View transform (UI thread only): m_zoom 1.0 = fit to window, m_pan = offset of the image
+    // centre from the window centre in window pixels.
+    double      m_zoom = 1.0;
+    wxPoint2DDouble m_pan{0.0, 0.0};
+    bool        m_dragging = false;
+    wxPoint     m_drag_start;
+    wxPoint2DDouble m_drag_pan{0.0, 0.0};
 };
 
 #endif /* wxMediaCtrl3_h */
