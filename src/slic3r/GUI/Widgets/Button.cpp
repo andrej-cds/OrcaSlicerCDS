@@ -43,8 +43,8 @@ END_EVENT_TABLE()
 Button::Button() : paddingSize(10, 8)
 {
     background_color = StateColor(std::make_pair(0xF0F0F1, (int) StateColor::Disabled),
-                                  std::make_pair(0x52c7b8, (int) StateColor::Hovered | StateColor::Checked),
-                                  std::make_pair(0x009688, (int) StateColor::Checked),
+                                  std::make_pair(0xD9C08C, (int) StateColor::Hovered | StateColor::Checked),
+                                  std::make_pair(0xC8A96E, (int) StateColor::Checked),
                                   std::make_pair(*wxLIGHT_GREY, (int) StateColor::Hovered),
                                   std::make_pair(*wxWHITE, (int) StateColor::Normal));
     text_color = StateColor(std::make_pair(*wxLIGHT_GREY, (int) StateColor::Disabled), std::make_pair(*wxBLACK, (int) StateColor::Normal));
@@ -192,9 +192,9 @@ void Button::SetVertical(bool vertical)
 
 //                           Background                                             Foreground                       Border on focus
 // Button Colors             0-Disabled 1-Pressed  2-Hover    3-Normal   4-Enabled  5-Disabled 6-Normal   7-Hover    8-Dark     9-Light
-wxString btn_regular[10]  = {"#DFDFDF", "#DFDFDF", "#D4D4D4", "#DFDFDF", "#DFDFDF", "#6B6A6A", "#262E30", "#262E30", "#009688", "#009688"};
-wxString btn_confirm[10]  = {"#DFDFDF", "#009688", "#26A69A", "#009688", "#009688", "#6B6A6A", "#FEFEFE", "#FEFEFE", "#22bfb0", "#00FFD4"};
-wxString btn_alert[10]    = {"#DFDFDF", "#DFDFDF", "#E14747", "#DFDFDF", "#DFDFDF", "#6B6A6A", "#262E30", "#FFFFFD", "#009688", "#009688"};
+wxString btn_regular[10]  = {"#DFDFDF", "#DFDFDF", "#D4D4D4", "#DFDFDF", "#DFDFDF", "#6B6A6A", "#262E30", "#262E30", "#C8A96E", "#C8A96E"};
+wxString btn_confirm[10]  = {"#DFDFDF", "#C8A96E", "#D4B985", "#C8A96E", "#C8A96E", "#6B6A6A", "#111111", "#111111", "#d9c08c", "#E8CC8F"};
+wxString btn_alert[10]    = {"#DFDFDF", "#DFDFDF", "#E14747", "#DFDFDF", "#DFDFDF", "#6B6A6A", "#262E30", "#FFFFFD", "#C8A96E", "#C8A96E"};
 wxString btn_disabled[10] = {"#DFDFDF", "#DFDFDF", "#DFDFDF", "#DFDFDF", "#DFDFDF", "#6B6A6A", "#6B6A6A", "#262E30", "#DFDFDF", "#DFDFDF"};
 
 void Button::SetStyle(const ButtonStyle style, const ButtonType type)

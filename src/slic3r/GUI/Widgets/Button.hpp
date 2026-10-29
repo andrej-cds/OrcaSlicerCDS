@@ -54,7 +54,7 @@ class Button : public StaticBox
     bool isCenter    = true;
     bool vertical    = false;
     bool m_show_indicator = false;
-    wxColour m_indicator_color = wxColour("#009688");
+    wxColour m_indicator_color = wxColour("#C8A96E");
 
     static const int buttonWidth  = 200;
     static const int buttonHeight = 50;

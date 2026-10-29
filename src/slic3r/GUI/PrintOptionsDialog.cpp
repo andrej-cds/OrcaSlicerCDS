@@ -45,9 +45,9 @@ static const wxColour STATIC_TEXT_EXPLAIN_COL = wxColour(100, 100, 100);
 namespace Slic3r { namespace GUI {
 
 static StateColor btn_bg_green(std::pair<wxColour, int>(wxColour(206, 206, 206), StateColor::Disabled),
-                               std::pair<wxColour, int>(wxColour(0, 137, 123), StateColor::Pressed),
-                               std::pair<wxColour, int>(wxColour(38, 166, 154), StateColor::Hovered),
-                               std::pair<wxColour, int>(wxColour(0, 150, 136), StateColor::Normal));
+                               std::pair<wxColour, int>(wxColour(179, 146, 87), StateColor::Pressed),
+                               std::pair<wxColour, int>(wxColour(212, 185, 133), StateColor::Hovered),
+                               std::pair<wxColour, int>(wxColour(200, 169, 110), StateColor::Normal));
 
 PrintOptionsDialog::PrintOptionsDialog(wxWindow* parent)
     : DPIDialog(parent, wxID_ANY, _L("Print Options"), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX)
@@ -1555,7 +1555,7 @@ PrinterPartsDialog::PrinterPartsDialog(wxWindow* parent)
     wxSizer* single_update_nozzle_sizer = new wxBoxSizer(wxHORIZONTAL);
     m_single_update_nozzle_button = new Button(single_panel, _L("Refresh"));
     m_single_update_nozzle_button->SetBackgroundColor(btn_bg_green);
-    m_single_update_nozzle_button->SetTextColor(wxColour("#FFFFFE"));
+    m_single_update_nozzle_button->SetTextColor(wxColour("#111111"));
     m_single_update_nozzle_button->SetFont(Label::Body_14);
     m_single_update_nozzle_button->SetSize(wxSize(FromDIP(80), FromDIP(32)));
     m_single_update_nozzle_button->SetMinSize(wxSize(-1, FromDIP(32)));
@@ -1667,7 +1667,7 @@ PrinterPartsDialog::PrinterPartsDialog(wxWindow* parent)
     wxSizer* multiple_update_nozzle_sizer = new wxBoxSizer(wxHORIZONTAL);
     m_multiple_update_nozzle_button = new Button(multiple_panel, _L("Refresh"));
     m_multiple_update_nozzle_button->SetBackgroundColor(btn_bg_green);
-    m_multiple_update_nozzle_button->SetTextColor(wxColour("#FFFFFE"));
+    m_multiple_update_nozzle_button->SetTextColor(wxColour("#111111"));
     m_multiple_update_nozzle_button->SetFont(Label::Body_14);
     m_multiple_update_nozzle_button->SetSize(wxSize(FromDIP(80), FromDIP(32)));
     m_multiple_update_nozzle_button->SetMinSize(wxSize(-1, FromDIP(32)));

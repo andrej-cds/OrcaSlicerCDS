@@ -18,7 +18,7 @@
 
 .plugin-search:focus-within {
   border-color: var(--main-color);
-  box-shadow: 0 0 0 2px rgba(0, 150, 136, 0.25);
+  box-shadow: 0 0 0 2px rgba(200, 169, 110, 0.25);
 }
 
 .plugin-search-icon {
@@ -102,7 +102,7 @@
 }
 
 .plugin-search-toggle.on {
-  color: var(--button-fg-light, #fff);
+  color: var(--button-fg-accent, #111111);
   background: var(--main-color);
   border-color: var(--main-color-hover);
 }

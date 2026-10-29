@@ -85,22 +85,22 @@ body
       SwitchDarkMode() injects from the app theme, so the two can disagree.----*/
 :root
 {
-	--row-hover            : #BFE1DE;
-	--warn-color           : #F07E4A;
-	--account-avatar-bg    : #E6EBEA;
-	--account-avatar-glyph : #9AA5A3;
-	--account-surface      : #FFFFFF;
-	--account-name         : #262E30;
-	--account-meta         : #7C8282;
-	--account-border       : #DBDBDB;
-	--account-divider      : #E2E4E4;
-	--account-action       : #00796B;
-	--account-danger       : #D33B3B;
-	--account-danger-bg    : rgba(211, 59, 59, 0.10);
-	--account-warn-bg      : rgba(240, 126, 74, 0.12);  /*----var(--warn-color) at 12%----*/
-	--account-dot-off      : #C4CBCA;
-	--account-dot-on       : #34A853;
-	--account-menu-shadow  : 0 10px 28px rgba(20, 30, 28, 0.18);
+	--row-hover: #F1EADB;
+	--warn-color: #F07E4A;
+	--account-avatar-bg: #E6EBEA;
+	--account-avatar-glyph: #9AA5A3;
+	--account-surface: #FFFFFF;
+	--account-name: #262E30;
+	--account-meta: #7C8282;
+	--account-border: #DBDBDB;
+	--account-divider: #E2E4E4;
+	--account-action: #00796B;
+	--account-danger: #D33B3B;
+	--account-danger-bg: rgba(211, 59, 59, 0.10);
+	--account-warn-bg: rgba(240, 126, 74, 0.12);  /*----var(--warn-color) at 12%----*/
+	--account-dot-off: #C4CBCA;
+	--account-dot-on: #34A853;
+	--account-menu-shadow: 0 10px 28px rgba(20, 30, 28, 0.18);
 
 	--glyph-account:
 		url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="12" r="5.6"/><path d="M4.9 29a11.1 11.1 0 0 1 22.2 0Z"/></svg>');
@@ -590,8 +590,8 @@ body
 
 .MenuItem:hover
 {
-	border-color: #009688;		/*ORCA color*/
-	background-color: #E5F0EE; /*ORCA color with %25 opacity*/
+	border-color: #C8A96E;		/*ORCA color*/
+	background-color: #F9F6F0; /*ORCA color with %25 opacity*/
 }
 
 .MenuIcon
@@ -773,8 +773,8 @@ body
 	line-height: 16px;
 	font-size: 10px;
 	font-weight: 600;
-	color: #FFFFFF;
-	background-color: #009688;
+	color: #111111;
+	background-color: #C8A96E;
 	border-radius: 2px;
 	white-space: nowrap;
 }
@@ -811,9 +811,9 @@ body
 .CT_Item:hover
 {
 	cursor: pointer;
-	background-color:#009688; /*ORCA color*/
+	background-color:#C8A96E; /*ORCA color*/
 	border-radius: 4px;
-	color: #fff;
+	color: #111111;
 }
 
 
@@ -1047,7 +1047,7 @@ body
 #HotModel_RIGHT_Title:hover
 {
 	cursor: pointer;	
-	color:#009688;	
+	color:#A07F3F;	
 }
 
 .HotModelPiece

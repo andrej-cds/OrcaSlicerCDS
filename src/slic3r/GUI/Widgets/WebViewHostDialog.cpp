@@ -43,7 +43,7 @@ std::string host_theme_vars_css()
     const wxColour fg     = app.get_label_clr_default();
     const wxColour muted  = app.get_label_clr_sys();
     const wxColour border = app.get_highlight_default_clr();
-    const wxColour accent = StateColor::darkModeColorFor(wxColour("#009688"));
+    const wxColour accent = StateColor::darkModeColorFor(wxColour("#C8A96E"));
     std::string    font   = app.normal_font().GetFaceName().ToStdString();
     // Strip characters that could break out of the CSS value / <style> block.
     font.erase(std::remove_if(font.begin(), font.end(), [](char c) {
@@ -58,7 +58,8 @@ std::string host_theme_vars_css()
     s += "--orca-muted:" + css_color(muted) + ";";
     s += "--orca-border:" + css_color(border) + ";";
     s += "--orca-accent:" + css_color(accent) + ";";
-    s += "--orca-accent-fg:#ffffff;";
+    s += "--orca-accent-fg:#111111;"; // CDS: text on gold accent
+    s += "--orca-accent-text:" + css_color(StateColor::darkModeColorFor(wxColour("#A07F3F"))) + ";"; // CDS: gold as text
     s += "--orca-font:" + (font.empty() ? std::string() : "'" + font + "',") +
          "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;";
     s += "color-scheme:" + host_theme_name() + ";";

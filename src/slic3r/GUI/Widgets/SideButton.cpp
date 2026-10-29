@@ -37,9 +37,9 @@ SideButton::SideButton(wxWindow* parent, wxString text, wxString icon, long stly
     text_orientation = HO_Left;
 
     border_color.append(0x6B6B6B, StateColor::Disabled);
-    border_color.append(wxColour(0, 137, 123), StateColor::Pressed);
-    border_color.append(wxColour(38, 166, 154), StateColor::Hovered);
-    border_color.append(0x009688, StateColor::Normal);
+    border_color.append(wxColour(179, 146, 87), StateColor::Pressed);
+    border_color.append(wxColour(212, 185, 133), StateColor::Hovered);
+    border_color.append(0xC8A96E, StateColor::Normal);
     border_color.setTakeFocusedAsHovered(false);
 
     text_color.append(0xACACAC, StateColor::Disabled);
@@ -48,9 +48,9 @@ SideButton::SideButton(wxWindow* parent, wxString text, wxString icon, long stly
     text_color.append(0xFEFEFE, StateColor::Normal);
 
     background_color.append(0x6B6B6B, StateColor::Disabled);
-    background_color.append(wxColour(0, 137, 123), StateColor::Pressed);
-    background_color.append(wxColour(38, 166, 154), StateColor::Hovered);
-    background_color.append(0x009688, StateColor::Normal);
+    background_color.append(wxColour(179, 146, 87), StateColor::Pressed);
+    background_color.append(wxColour(212, 185, 133), StateColor::Hovered);
+    background_color.append(0xC8A96E, StateColor::Normal);
     background_color.setTakeFocusedAsHovered(false);
 
     SetBottomColour(wxColour("#3B4446"));

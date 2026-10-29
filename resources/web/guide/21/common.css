@@ -136,7 +136,7 @@
 	background: var(--main-color);
 	border: 1px solid var(--main-color);
 	z-index: 9999;
-	color: #FFF;
+	color: #111111;
 	text-align: center;
 }
 
@@ -428,7 +428,7 @@ img.ModelThumbnail {
 	background-color: var(--main-color);
 	height: 40px;
 	line-height: 40px;
-	color: #fff;
+	color: #111111;
 	text-align: center;
 }
 
