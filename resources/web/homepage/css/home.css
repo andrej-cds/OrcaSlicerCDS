@@ -99,7 +99,7 @@ body
 	--account-danger-bg: rgba(211, 59, 59, 0.10);
 	--account-warn-bg: rgba(240, 126, 74, 0.12);  /*----var(--warn-color) at 12%----*/
 	--account-dot-off: #C4CBCA;
-	--account-dot-on: #34A853;
+	--account-dot-on: #C8A96E;
 	--account-menu-shadow: 0 10px 28px rgba(20, 30, 28, 0.18);
 
 	--glyph-account:

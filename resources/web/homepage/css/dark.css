@@ -146,6 +146,6 @@ body
 	--account-danger-bg: rgba(225, 71, 71, 0.16);
 	--account-warn-bg: rgba(240, 126, 74, 0.16);  /*----var(--warn-color) at 16%----*/
 	--account-dot-off: #5A5A62;
-	--account-dot-on: #4CAF50;
+	--account-dot-on: #C8A96E;
 	--account-menu-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
 }

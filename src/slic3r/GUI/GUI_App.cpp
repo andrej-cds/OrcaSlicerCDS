@@ -7202,6 +7202,12 @@ std::string GUI_App::format_display_version()
     if (!version_display.empty()) return version_display;
 
     version_display = SoftFever_VERSION;
+    // CDS: show our build flavour instead of the upstream "-dev" suffix (display only;
+    // SoftFever_VERSION itself stays unchanged for config/profile compatibility).
+    const std::string dev_suffix = "-dev";
+    if (version_display.size() > dev_suffix.size() &&
+        version_display.compare(version_display.size() - dev_suffix.size(), dev_suffix.size(), dev_suffix) == 0)
+        version_display.replace(version_display.size() - dev_suffix.size(), dev_suffix.size(), "-cds");
     return version_display;
 }
 
