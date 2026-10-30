@@ -56,7 +56,7 @@ ImageGrid::ImageGrid(wxWindow * parent)
             std::make_pair(*wxWHITE, (int) StateColor::Pressed),
             std::make_pair(*wxRED, (int) StateColor::Normal)))
     , m_buttonTextColor(StateColor(
-            std::make_pair(0x3B4446, (int) StateColor::Pressed),
+            std::make_pair(0x3B3B3F, (int) StateColor::Pressed),
             std::make_pair(*wxLIGHT_GREY, (int) StateColor::Hovered),
             std::make_pair(*wxWHITE, (int) StateColor::Normal)))
     , m_checked_icon(this, "check_on", 16)

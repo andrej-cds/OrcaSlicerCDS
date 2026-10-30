@@ -33,9 +33,9 @@ ButtonsListCtrl::ButtonsListCtrl(wxWindow *parent, wxBoxSizer* side_tools) :
 
     wxColour default_btn_bg;
 #ifdef __APPLE__
-    default_btn_bg = wxColour("#3B4446"); // Gradient #414B4E
+    default_btn_bg = wxColour("#3B3B3F"); // Gradient #414145
 #else
-    default_btn_bg = wxColour("#2D2D30"); // Gradient #414B4E
+    default_btn_bg = wxColour("#2D2D30"); // Gradient #414145
 #endif
 
    
@@ -80,7 +80,7 @@ void ButtonsListCtrl::OnPaint(wxPaintEvent&)
         return;
 
     wxColour selected_btn_bg("#1F8EEA");
-    wxColour default_btn_bg("#3B4446"); // Gradient #414B4E
+    wxColour default_btn_bg("#3B3B3F"); // Gradient #414145
     const wxColour& btn_marker_color = Slic3r::GUI::wxGetApp().get_color_hovered_btn_label();
 
     // highlight selected notebook button
@@ -137,7 +137,7 @@ void ButtonsListCtrl::SetSelection(int sel)
     if (m_selection >= 0 && m_selection < static_cast<int>(m_pageButtons.size())) {
         StateColor bg_color = StateColor(
         std::pair{wxColour(107, 107, 107), (int) StateColor::Hovered},
-        std::pair{wxColour(59, 68, 70), (int) StateColor::Normal});
+        std::pair{wxColour(59, 59, 63), (int) StateColor::Normal});
         m_pageButtons[m_selection]->SetBackgroundColor(bg_color);
         StateColor text_color = StateColor(
         std::pair{wxColour(254,254, 254), (int) StateColor::Normal}
@@ -190,7 +190,7 @@ bool ButtonsListCtrl::InsertPage(size_t n, const wxString &text, bool bSelect /*
 
     StateColor bg_color = StateColor(
         std::pair{wxColour(107, 107, 107), (int) StateColor::Hovered},
-        std::pair{wxColour(59, 68, 70), (int) StateColor::Normal});
+        std::pair{wxColour(59, 59, 63), (int) StateColor::Normal});
 
     btn->SetBackgroundColor(bg_color);
     StateColor text_color = StateColor(

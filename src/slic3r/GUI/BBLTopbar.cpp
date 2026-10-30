@@ -63,7 +63,7 @@ CenteredTitle::CenteredTitle(wxWindow* parent)
     Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
     Bind(wxEVT_PAINT, [this](wxPaintEvent&) {
         wxBufferedPaintDC dc(this);
-        dc.SetBackground(wxBrush(wxColour(38, 46, 48)));
+        dc.SetBackground(wxBrush(wxColour(38, 38, 41)));
         dc.Clear();
 
         dc.SetTextForeground(*wxWHITE);
@@ -119,7 +119,7 @@ public:
 
 void BBLTopbarArt::DrawBackground(wxDC& dc, wxWindow* wnd, const wxRect& rect)
 {
-    dc.SetBrush(wxBrush(wxColour(38, 46, 48)));
+    dc.SetBrush(wxBrush(wxColour(38, 38, 41)));
     wxRect clipRect = rect;
     clipRect.y -= 8;
     clipRect.height += 8;

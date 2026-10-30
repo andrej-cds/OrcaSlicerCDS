@@ -442,7 +442,7 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
     m_topbar         = new BBLTopbar(this);
 #else
     auto panel_topbar = new wxPanel(this, wxID_ANY);
-    panel_topbar->SetBackgroundColour(wxColour(38, 46, 48));
+    panel_topbar->SetBackgroundColour(wxColour(38, 38, 41));
     auto sizer_tobar = new wxBoxSizer(wxVERTICAL);
     panel_topbar->SetSizer(sizer_tobar);
     panel_topbar->Layout();
@@ -2225,8 +2225,8 @@ wxBoxSizer* MainFrame::create_side_tools()
 
     auto slice_panel = new wxPanel(this,wxID_ANY,wxDefaultPosition,wxDefaultSize);
     auto print_panel = new wxPanel(this,wxID_ANY,wxDefaultPosition,wxDefaultSize);
-    slice_panel->SetBackgroundColour(StateColor::darkModeColorFor(wxColour("#3B4446")));
-    print_panel->SetBackgroundColour(StateColor::darkModeColorFor(wxColour("#3B4446")));
+    slice_panel->SetBackgroundColour(StateColor::darkModeColorFor(wxColour("#3B3B3F")));
+    print_panel->SetBackgroundColour(StateColor::darkModeColorFor(wxColour("#3B3B3F")));
 
     m_slice_btn = new SideButton(slice_panel, _L("Slice plate"), "");
     m_slice_option_btn = new SideButton(slice_panel, "", "sidebutton_dropdown", 0, 14);
@@ -2418,7 +2418,7 @@ wxBoxSizer* MainFrame::create_side_tools()
 
     /*
     Button * aux_btn = new Button(this, _L("Auxiliary"));
-    aux_btn->SetBackgroundColour(0x3B4446);
+    aux_btn->SetBackgroundColour(0x3B3B3F);
     aux_btn->Bind(wxEVT_BUTTON, [](auto e) {
         wxGetApp().sidebar().show_auxiliary_dialog();
     });
@@ -2580,7 +2580,7 @@ void MainFrame::update_side_button_style()
     m_slice_btn->SetMinSize(wxSize(-1, FromDIP(24)));
     m_slice_btn->SetCornerRadius(FromDIP(12));
     m_slice_btn->SetExtraSize(wxSize(FromDIP(38), FromDIP(10)));
-    m_slice_btn->SetBottomColour(wxColour(0x3B4446));*/
+    m_slice_btn->SetBottomColour(wxColour(0x3B3B3F));*/
     StateColor m_btn_bg_enable = StateColor(
         std::pair<wxColour, int>(wxColour(179, 146, 87), StateColor::Pressed),
         std::pair<wxColour, int>(wxColour(48, 221, 112), StateColor::Hovered),
@@ -2591,7 +2591,7 @@ void MainFrame::update_side_button_style()
     // m_publish_btn->SetCornerRadius(FromDIP(12));
     // m_publish_btn->SetBackgroundColor(m_btn_bg_enable);
     // m_publish_btn->SetBorderColor(m_btn_bg_enable);
-    // m_publish_btn->SetBackgroundColour(wxColour(59,68,70));
+    // m_publish_btn->SetBackgroundColour(wxColour(59,59,63));
     // m_publish_btn->SetTextColor(StateColor::darkModeColorFor("#FFFFFE"));
 
     m_slice_btn->SetTextLayout(SideButton::EHorizontalOrientation::HO_Left, FromDIP(15));
@@ -2616,8 +2616,8 @@ void MainFrame::update_side_button_style()
     m_print_option_btn->SetIconOffset(FromDIP(2));
     m_print_option_btn->SetMinSize(wxSize(FromDIP(24), FromDIP(24)));
 
-    // Keep panel backgrounds in sync with SideButton's darkModeColorFor(#3B4446) bottom strip
-    auto bg = StateColor::darkModeColorFor(wxColour("#3B4446"));
+    // Keep panel backgrounds in sync with SideButton's darkModeColorFor(#3B3B3F) bottom strip
+    auto bg = StateColor::darkModeColorFor(wxColour("#3B3B3F"));
     m_slice_btn->GetParent()->SetBackgroundColour(bg);
     m_print_btn->GetParent()->SetBackgroundColour(bg);
 }
