@@ -80,7 +80,9 @@ if [[ "$NOVNC_PORT" -le 0 || "$NOVNC_PORT" -gt 65535 || "$VNC_PORT" -le 0 || "$V
     echo "invalid Linux browser port range" >&2
     exit 64
 fi
-LISTEN_HOST=${SLICER_LINUX_RUNTIME_AUTH_LISTEN_HOST:-127.0.0.1}
+# 0.0.0.0: on some WSL builds Windows->WSL localhost forwarding only reaches wildcard-bound sockets.
+# The viewer is still password protected and the WSL NAT network is only reachable from the host.
+LISTEN_HOST=${SLICER_LINUX_RUNTIME_AUTH_LISTEN_HOST:-0.0.0.0}
 
 mkdir -p "$STATE_DIR" "$PROFILE_DIR"
 chmod 700 "$STATE_DIR" "$PROFILE_DIR"

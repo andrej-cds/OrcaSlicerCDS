@@ -778,6 +778,16 @@ void ZUserLogin::OnError(wxWebViewEvent &evt)
         WX_ERROR_CASE(wxWEBVIEW_NAV_ERR_OTHER);
     }
 
+    // The Linux auth viewer must keep polling the runtime even if the noVNC page hits a
+    // transient connection error (e.g. WSL loopback forwarding not ready yet); stopping the
+    // timer here would leave the login result unprocessed forever.
+    if (m_linux_auth) {
+        BOOST_LOG_TRIVIAL(warning) << "linux_auth_viewer: " << category << " " << evt.GetString().ToUTF8().data()
+                                   << " url=" << evt.GetURL().ToUTF8().data();
+        UpdateState();
+        return;
+    }
+
     if( evt.GetInt()==wxWEBVIEW_NAV_ERR_CONNECTION )
     {
         if(m_timer!=NULL)
