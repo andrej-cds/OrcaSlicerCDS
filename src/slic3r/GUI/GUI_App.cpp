@@ -5455,7 +5455,8 @@ void GUI_App::ShowUserLogin(bool show, const std::string& provider)
             delete login_dlg;
             auto cloud_agent = m_agent->get_cloud_agent(provider);
             login_dlg        = new ZUserLogin(cloud_agent);
-            login_dlg->ShowModal();
+            // run() starts the status timer that polls the login result; plain ShowModal() would never process it.
+            login_dlg->run();
         } catch (std::exception &) {
             ;
         }
