@@ -2018,6 +2018,10 @@ nlohmann::json LinuxRuntimeHost::process_auth_browser_result(const nlohmann::jso
 
 nlohmann::json LinuxRuntimeHost::auth_browser_status()
 {
+    static int diag_calls = 0;
+    ++diag_calls;
+    if (diag_calls <= 5 || diag_calls % 20 == 0)
+        host_log_json("auth.status.call", {{"n", diag_calls}, {"has_session", (bool)m_auth_session}});
     if (!m_auth_session)
         return {{"ok", true}, {"state", "idle"}};
     if (m_auth_session->mode != "auth")
@@ -2031,6 +2035,8 @@ nlohmann::json LinuxRuntimeHost::auth_browser_status()
     }
 
     const std::string raw = read_text_file(m_auth_session->result_file);
+    if (!raw.empty())
+        host_log_json("auth.status.result_found", {{"bytes", raw.size()}, {"file", m_auth_session->result_file.string()}});
     if (raw.empty()) {
         int status = 0;
         const pid_t ret = ::waitpid(m_auth_session->process_group, &status, WNOHANG);
@@ -2071,7 +2077,9 @@ nlohmann::json LinuxRuntimeHost::auth_browser_status()
     std::filesystem::remove(m_auth_session->state_dir / "vnc.pass");
     std::filesystem::remove(m_auth_session->state_dir / "viewer-password");
 
+    host_log_json("auth.status.process.begin", {{"kind", result.value("kind", std::string())}});
     auto processed = process_auth_browser_result(result);
+    host_log_json("auth.status.process.end", {{"state", processed.value("state", std::string())}, {"error", processed.value("error", std::string())}, {"code", processed.value("code", 0)}, {"http_code", processed.value("http_code", 0)}});
     m_auth_session->processed = true;
     m_auth_session->state = processed.value("state", std::string("error"));
     m_auth_session->error = processed.value("error", std::string());

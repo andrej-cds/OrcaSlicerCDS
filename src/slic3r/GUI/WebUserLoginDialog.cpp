@@ -348,8 +348,11 @@ void ZUserLogin::OnTimer(wxTimerEvent &event) {
             auto status_fn = plugin.get_linux_auth_status();
             auto* agent = plugin.get_agent();
             status_available = status_fn && agent;
-            if (status_available)
+            if (status_available) {
+                BOOST_LOG_TRIVIAL(info) << "linux_auth_poll: calling status";
                 status_reply = status_fn(agent);
+                BOOST_LOG_TRIVIAL(info) << "linux_auth_poll: reply=" << status_reply.substr(0, 300);
+            }
         }
         if (!status_available) {
             BOOST_LOG_TRIVIAL(error) << "linux_auth_status: runtime unavailable";
