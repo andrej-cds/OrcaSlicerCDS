@@ -1,5 +1,6 @@
 #include "ModelMall.hpp"
 #include "GUI_App.hpp"
+#include "GUI.hpp"
 
 #include "slic3r/GUI/GUI_Utils.hpp"
 #include <wx/intl.h>
