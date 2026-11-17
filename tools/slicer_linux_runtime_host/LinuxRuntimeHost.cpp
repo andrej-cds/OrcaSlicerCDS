@@ -2018,10 +2018,6 @@ nlohmann::json LinuxRuntimeHost::process_auth_browser_result(const nlohmann::jso
 
 nlohmann::json LinuxRuntimeHost::auth_browser_status()
 {
-    static int diag_calls = 0;
-    ++diag_calls;
-    if (diag_calls <= 5 || diag_calls % 20 == 0)
-        host_log_json("auth.status.call", {{"n", diag_calls}, {"has_session", (bool)m_auth_session}});
     if (!m_auth_session)
         return {{"ok", true}, {"state", "idle"}};
     if (m_auth_session->mode != "auth")

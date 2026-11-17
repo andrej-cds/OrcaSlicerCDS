@@ -23,6 +23,7 @@
 #include <utility>
 #include "libslic3r/Utils.hpp"
 #include "slic3r/Utils/FileTransferUtils.hpp"
+#include "slic3r/GUI/I18N.hpp"
 #include <cstddef>
 #include <cstring>
 #include <cwchar>
@@ -439,7 +440,7 @@ int BBLNetworkPlugin::initialize(bool using_backup, const std::string& version)
     if (version.empty()) {
         BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": version is required but not provided";
         set_load_error(
-            "Network library version not specified",
+            _u8L("Network library version not specified"),
             "A version must be specified to load the network library",
             ""
         );
@@ -522,7 +523,7 @@ int BBLNetworkPlugin::initialize(bool using_backup, const std::string& version)
             char* dll_error = dlerror();
             BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": dlopen failed: " << (dll_error ? dll_error : "unknown error");
             set_load_error(
-                "Failed to load network library",
+                _u8L("Failed to load network library"),
                 dll_error ? std::string(dll_error) : "Unknown dlopen error",
                 library
             );
@@ -533,7 +534,7 @@ int BBLNetworkPlugin::initialize(bool using_backup, const std::string& version)
     if (!m_networking_module) {
         if (!m_load_error.has_error) {
             set_load_error(
-                "Network library failed to load",
+                _u8L("Network library failed to load"),
                 "LoadLibrary/dlopen returned null",
                 library
             );
@@ -752,8 +753,15 @@ int BBLNetworkPlugin::destroy_agent()
 int BBLNetworkPlugin::destroy_agent_unlocked()
 {
     int ret = 0;
-    if (m_agent && m_destroy_agent)
+    if (m_agent && m_destroy_agent) {
+        // The agent's SSDP discovery threads keep polling the discovery state the agent owns, and
+        // destroying the agent frees that state without joining them; stopping discovery joins them.
+        // Nothing else guarantees discovery is stopped here: on exit the printer agent that would
+        // forward start_discovery(false) has already been detached.
+        if (m_start_discovery)
+            m_start_discovery(m_agent, false, false);
         ret = m_destroy_agent(m_agent);
+    }
     m_agent = nullptr;
     return ret;
 }
@@ -1346,6 +1354,12 @@ std::vector<NetworkLibraryVersionInfo> get_all_available_versions()
     return get_all_available_versions(plugin.is_loaded() ? plugin.get_version() : std::string());
 }
 
+// Marks the AVAILABLE_NETWORK_VERSIONS warnings for extraction; bambu_networking.hpp is also built without the GUI.
+[[maybe_unused]] static const char* const network_version_warning_markers[] = {
+    L("An older plug-in series. Features that need newer plug-in support, such as print-failure "
+      "snapshots in the device error dialog, are unavailable."),
+};
+
 std::vector<NetworkLibraryVersionInfo> get_all_available_versions(const std::string& loaded_version)
 {
     std::vector<NetworkLibraryVersionInfo> result;
@@ -1353,6 +1367,8 @@ std::vector<NetworkLibraryVersionInfo> get_all_available_versions(const std::str
 
     for (size_t i = 0; i < AVAILABLE_NETWORK_VERSIONS_COUNT; ++i) {
         result.push_back(NetworkLibraryVersionInfo::from_static(AVAILABLE_NETWORK_VERSIONS[i]));
+        if (!result.back().warning.empty())
+            result.back().warning = GUI::I18N::translate_utf8(result.back().warning);
         all_known_versions.insert(AVAILABLE_NETWORK_VERSIONS[i].version);
     }
 

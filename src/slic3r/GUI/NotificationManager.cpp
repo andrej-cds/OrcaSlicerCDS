@@ -12,6 +12,7 @@
 #include "Tab.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/PrintBase.hpp"
+#include "libslic3r/PresetBundle.hpp"
 #include "format.hpp"
 
 #include <algorithm>
@@ -46,11 +47,13 @@
 #include "libslic3r/Model.hpp"
 #include <wx/dataview.h>
 #include "slic3r/GUI/Plater.hpp"
+#include "slic3r/GUI/PartPlate.hpp"
 #include <wx/glcanvas.h>
 #include <wx/utils.h>
 #include <wx/time.h>
 
 #include "GUI_App.hpp"
+#include "slic3r/Utils/PrintHost.hpp"
 #include "FilamentMapDialog.hpp"
 
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
@@ -192,13 +195,13 @@ NotificationManager::PopNotification::PopNotification(const NotificationData &n,
 {
     m_ErrorColor  = ImGuiWrapper::to_ImVec4(decode_color_to_float_array("#E14747")); // ORCA
     m_WarnColor   = ImGuiWrapper::to_ImVec4(decode_color_to_float_array("#F59B16")); // ORCA
-    m_NormalColor = ImVec4(0, 0.588, 0.533, 1);
+    m_NormalColor = ImVec4(0.784f, 0.663f, 0.431f, 1);
 
 	m_CurrentColor = m_NormalColor;   //Default
 
 	m_WindowBkgColor = ImVec4(1, 1, 1, 1);
     m_TextColor      = ImVec4(.2f, .2f, .2f, 1.0f);
-    m_HyperTextColor = ImVec4(0, 0.588, 0.533, 1);
+    m_HyperTextColor = ImVec4(0.784f, 0.663f, 0.431f, 1);
 }
 
 // We cannot call plater()->get_current_canvas3D() from constructor, so we do it here
@@ -266,7 +269,7 @@ void NotificationManager::PopNotification::use_bbl_theme()
 
 	m_WindowBkgColor = m_is_dark ? ImVec4(45 / 255.f, 45 / 255.f, 49 / 255.f, 1.f) : ImVec4(1, 1, 1, 1);
 	m_TextColor = m_is_dark ? ImVec4(224 / 255.f, 224 / 255.f, 224 / 255.f, 1.f) : ImVec4(.2f, .2f, .2f, 1.0f);
-	m_HyperTextColor = m_is_dark ? ImVec4(0, 0.588, 0.533, 1) : ImVec4(0, 0.588, 0.533, 1);
+	m_HyperTextColor = m_is_dark ? ImVec4(0.784f, 0.663f, 0.431f, 1) : ImVec4(0.784f, 0.663f, 0.431f, 1);
 	m_HyperTextColorHover = m_is_dark ? ImVec4(212.f / 255.f, 185.f / 255.f, 133.f / 255.f, 1) : ImVec4(184.f / 255.f, 154.f / 255.f, 98.f / 255.f, 1); //#D4B985 / #B89A62;
 
 	m_is_dark ? push_style_color(ImGuiCol_Border, {62 / 255.f, 62 / 255.f, 69 / 255.f, 1.f}, true, m_current_fade_opacity) : push_style_color(ImGuiCol_Border, m_CurrentColor, true, m_current_fade_opacity);
@@ -2237,6 +2240,14 @@ void NotificationManager::close_notification_of_type(const NotificationType type
 	}
 }
 
+bool NotificationManager::has_notification_of_type(const NotificationType type) const
+{
+	for (const std::unique_ptr<PopNotification> &notification : m_pop_notifications)
+		if (notification->get_type() == type && !notification->is_finished())
+			return true;
+	return false;
+}
+
 void NotificationManager::close_and_delete_self(PopNotification * self)
 {
     for (auto it = m_pop_notifications.begin(); it != m_pop_notifications.end();) {
@@ -3610,7 +3621,9 @@ void NotificationManager::bbl_show_filament_map_invalid_notification_before_slic
         return false;
     };
 
-    push_notification_data({ type,NotificationLevel::ErrorNotificationLevel,0,_u8L("Error:") + "\n" + text,_u8L("Click here to regroup"),callback }, 0);
+    // Only Bambu printers can regroup; without the link the callback is unreachable.
+    const std::string regroup = wxGetApp().preset_bundle->is_bbl_vendor() ? _u8L("Click here to regroup") : "";
+    push_notification_data({ type,NotificationLevel::ErrorNotificationLevel,0,_u8L("Error:") + "\n" + text,regroup,callback }, 0);
 }
 
 void NotificationManager::bbl_close_filament_map_invalid_notification_before_slice(const NotificationType type)
@@ -3633,7 +3646,9 @@ void NotificationManager::bbl_show_filament_map_invalid_notification_after_slice
         return false;
     };
 
-    push_notification_data({ type,NotificationLevel::ErrorNotificationLevel,0,_u8L("Error:") + "\n" + text,_u8L("Click here to regroup"),callback }, 0);
+    // Only Bambu printers can regroup; without the link the callback is unreachable.
+    const std::string regroup = wxGetApp().preset_bundle->is_bbl_vendor() ? _u8L("Click here to regroup") : "";
+    push_notification_data({ type,NotificationLevel::ErrorNotificationLevel,0,_u8L("Error:") + "\n" + text,regroup,callback }, 0);
 }
 
 void NotificationManager::bbl_close_filament_map_invalid_notification_after_slice(const NotificationType type)
