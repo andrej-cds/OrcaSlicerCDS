@@ -7,6 +7,7 @@
 #include <boost/process/windows.hpp>
 #endif
 
+#include <boost/log/trivial.hpp>
 #include <chrono>
 #include <stdexcept>
 
@@ -326,6 +327,18 @@ void RpcClient::reader_loop()
 
 RpcBinaryReply RpcClient::request_impl(const std::string& method, const nlohmann::json& payload, const std::vector<unsigned char>& request_binary, bool skip_handshake)
 {
+    // Diagnostics: a request that takes long stalls whichever thread issued it (often the UI thread), so log it.
+    struct SlowRequestLog {
+        const std::string&                    method;
+        const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+        ~SlowRequestLog()
+        {
+            const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+            if (ms >= 300)
+                BOOST_LOG_TRIVIAL(warning) << "SlicerLinuxRuntime: slow request " << method << " took " << ms << " ms";
+        }
+    } slow_request_log{method};
+
     if (!skip_handshake && !ensure_started())
         return {make_error_payload(last_error()), {}};
 
