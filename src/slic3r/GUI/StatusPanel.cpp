@@ -3508,6 +3508,7 @@ void StatusPanel::update_ams(MachineObject *obj)
         cali_info.nozzle_diameter        = obj->GetExtderSystem()->GetNozzleDiameter(0);
         cali_info.use_extruder_id        = false;
         cali_info.use_nozzle_volume_type = false;
+        CdsStepTimer t("update_ams.emit_get_PA_calib_infos");
         CalibUtils::emit_get_PA_calib_infos(cali_info);
     }
 
@@ -3515,6 +3516,7 @@ void StatusPanel::update_ams(MachineObject *obj)
     bool     is_support_filament_backup = obj->is_support_filament_backup;
 
     if (obj && (obj->is_lan_mode_printer() || obj->is_security_control_ready())) {
+        CdsStepTimer t("update_ams.check_ams_filament_valid");
         obj->check_ams_filament_valid();
     }
 
@@ -3552,7 +3554,7 @@ void StatusPanel::update_ams(MachineObject *obj)
     }
 
     //if (is_support_virtual_tray) m_ams_control->update_vams_kn_value(obj->vt_slot[0], obj);
-    if (m_filament_setting_dlg) m_filament_setting_dlg->update();
+    if (m_filament_setting_dlg) { CdsStepTimer t("update_ams.filament_setting_dlg_update"); m_filament_setting_dlg->update(); }
 
 
     std::vector<AMSinfo> ams_info;
@@ -3575,8 +3577,8 @@ void StatusPanel::update_ams(MachineObject *obj)
     }
 
     // must select a current can
-    m_ams_control->UpdateAms(obj->get_printer_series_str(), obj->printer_type, ams_info, ext_info, *obj->GetExtderSystem(), obj->get_dev_id(), obj, false);
-    m_ams_control->UpdateAmsDryControl(obj);
+    { CdsStepTimer t("update_ams.UpdateAms"); m_ams_control->UpdateAms(obj->get_printer_series_str(), obj->printer_type, ams_info, ext_info, *obj->GetExtderSystem(), obj->get_dev_id(), obj, false); }
+    { CdsStepTimer t("update_ams.UpdateAmsDryControl"); m_ams_control->UpdateAmsDryControl(obj); }
 
     last_tray_exist_bits  = obj->tray_exist_bits;
     last_ams_exist_bits   = obj->ams_exist_bits;
@@ -3613,6 +3615,7 @@ void StatusPanel::update_ams(MachineObject *obj)
     //    m_ams_control->SetExtruder(obj->is_filament_at_extruder(), obj->m_extder_data.extders[MAIN_NOZZLE_ID].snow.ams_id, obj->m_extder_data.extders[MAIN_NOZZLE_ID].snow.slot_id);
     //} else {
         /*right*/
+    CdsStepTimer cds_extruder_timer("update_ams.extruder_steps");
     if (obj->GetExtderSystem()->GetTotalExtderCount() > 0) {
         auto ext = obj->GetExtderSystem()->GetExtderById(MAIN_EXTRUDER_ID);
         if (ext->HasFilamentInExt()) {
@@ -3642,7 +3645,7 @@ void StatusPanel::update_ams(MachineObject *obj)
         m_ams_control->SetExtruder(ext->HasFilamentInExt(), DEPUTY_EXTRUDER_ID, ext->GetSlotNow().ams_id, ext->GetSlotNow().slot_id);
     }
 
-    update_filament_loading_panel(obj);
+    { CdsStepTimer t("update_ams.update_filament_loading_panel"); update_filament_loading_panel(obj); }
 
 
     const auto& amslist = obj->GetFilaSystem()->GetAmsList();
@@ -3679,7 +3682,7 @@ void StatusPanel::update_ams(MachineObject *obj)
         } catch (...) {}
     }
 
-    update_ams_control_state(curr_ams_id, curr_can_id);
+    { CdsStepTimer t("update_ams.update_ams_control_state"); update_ams_control_state(curr_ams_id, curr_can_id); }
 }
 
 

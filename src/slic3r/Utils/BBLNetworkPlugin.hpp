@@ -9,6 +9,7 @@
 #include <vector>
 #include <map>
 #include <functional>
+#include <chrono>
 #include <mutex>
 #include <shared_mutex>
 
@@ -270,12 +271,15 @@ public:
 
     private:
         friend class BBLNetworkPlugin;
-        explicit ModuleCallGuard(std::shared_mutex& mutex);
+        ModuleCallGuard(std::shared_mutex& mutex, const char* caller);
         std::shared_mutex* m_mutex{nullptr};
         bool m_active{false};
+        const char* m_caller{nullptr};
+        std::chrono::steady_clock::time_point m_start{};
     };
 
-    static ModuleCallGuard lock_module_for_call();
+    // The caller name is only used for diagnostics (plug-in calls that take long are logged).
+    static ModuleCallGuard lock_module_for_call(const char* caller = __builtin_FUNCTION());
 
     /**
      * Check if DLL is currently loaded.

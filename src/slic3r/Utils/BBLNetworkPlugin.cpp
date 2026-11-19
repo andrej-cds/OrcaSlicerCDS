@@ -203,8 +203,8 @@ BBLNetworkPlugin& BBLNetworkPlugin::instance()
     return *plugin;
 }
 
-BBLNetworkPlugin::ModuleCallGuard::ModuleCallGuard(std::shared_mutex& mutex)
-    : m_mutex(&mutex), m_active(true)
+BBLNetworkPlugin::ModuleCallGuard::ModuleCallGuard(std::shared_mutex& mutex, const char* caller)
+    : m_mutex(&mutex), m_active(true), m_caller(caller), m_start(std::chrono::steady_clock::now())
 {
     if (g_network_module_call_depth == 0) {
         // CDS diagnostics: report a long wait for the module lifetime lock (someone holds it exclusively).
@@ -222,13 +222,18 @@ BBLNetworkPlugin::ModuleCallGuard::~ModuleCallGuard()
     if (!m_active || g_network_module_call_depth == 0)
         return;
     --g_network_module_call_depth;
-    if (g_network_module_call_depth == 0 && m_mutex)
+    if (g_network_module_call_depth == 0 && m_mutex) {
         m_mutex->unlock_shared();
+        // CDS diagnostics: an outermost plug-in call that takes long blocks the calling thread (often the UI thread).
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_start).count();
+        if (ms >= 150)
+            BOOST_LOG_TRIVIAL(warning) << "BBLNetworkPlugin: plug-in call in " << (m_caller ? m_caller : "?") << " took " << ms << " ms";
+    }
 }
 
-BBLNetworkPlugin::ModuleCallGuard BBLNetworkPlugin::lock_module_for_call()
+BBLNetworkPlugin::ModuleCallGuard BBLNetworkPlugin::lock_module_for_call(const char* caller)
 {
-    return ModuleCallGuard(g_network_module_lifetime_mutex);
+    return ModuleCallGuard(g_network_module_lifetime_mutex, caller);
 }
 
 void BBLNetworkPlugin::shutdown()
