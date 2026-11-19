@@ -124,6 +124,20 @@
 
 namespace Slic3r { namespace GUI {
 
+// CDS diagnostics: log UI-thread steps that take >= 150 ms (Device tab stall investigation).
+struct CdsStepTimer
+{
+    const char*                                  label;
+    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    explicit CdsStepTimer(const char* l) : label(l) {}
+    ~CdsStepTimer()
+    {
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+        if (ms >= 150)
+            BOOST_LOG_TRIVIAL(warning) << "CDS step: " << label << " took " << ms << " ms";
+    }
+};
+
 #define TEMP_THRESHOLD_VAL 2
 #define TEMP_THRESHOLD_ALLOW_E_CTRL 170.0f
 
@@ -2963,7 +2977,7 @@ void StatusPanel::update(MachineObject *obj)
     }
 
     //m_project_task_panel->Freeze();
-    update_subtask(obj);
+    { CdsStepTimer t("update.update_subtask"); update_subtask(obj); }
     //m_project_task_panel->Thaw();
 
 #if !BBL_RELEASE_TO_PUBLIC
@@ -2984,10 +2998,13 @@ void StatusPanel::update(MachineObject *obj)
 #endif
 
     //m_machine_ctrl_panel->Freeze();
-    if (obj->is_in_printing() && !obj->can_resume()) {
-        show_printing_status(false, true);
-    } else {
-        show_printing_status();
+    {
+        CdsStepTimer t("update.show_printing_status");
+        if (obj->is_in_printing() && !obj->can_resume()) {
+            show_printing_status(false, true);
+        } else {
+            show_printing_status();
+        }
     }
 
     /*STUDIO-12573*/
@@ -2995,13 +3012,13 @@ void StatusPanel::update(MachineObject *obj)
         m_switch_lamp->Enable(false);
     }
 
-    update_temp_ctrl(obj);
-    update_misc_ctrl(obj);
+    { CdsStepTimer t("update.update_temp_ctrl"); update_temp_ctrl(obj); }
+    { CdsStepTimer t("update.update_misc_ctrl"); update_misc_ctrl(obj); }
 
-    update_ams(obj);
-    update_cali(obj);
+    { CdsStepTimer t("update.update_ams"); update_ams(obj); }
+    { CdsStepTimer t("update.update_cali"); update_cali(obj); }
 
-    update_rack(obj);
+    { CdsStepTimer t("update.update_rack"); update_rack(obj); }
 
     if (obj) {
         //nozzle ui
@@ -3076,7 +3093,7 @@ void StatusPanel::update(MachineObject *obj)
         update_error_message();
     }
 
-    update_camera_state(obj);
+    { CdsStepTimer t("update.update_camera_state"); update_camera_state(obj); }
 
     //m_machine_ctrl_panel->Thaw();
 }
@@ -3821,6 +3838,7 @@ void StatusPanel::update_model_info()
                 curr_model_task->task_id = curr_task->task_id;
                 request_model_info_flag = true;
                 if (!curr_model_task->task_id.empty() && curr_model_task->task_id.compare("0") != 0) {
+                    CdsStepTimer t("update_model_info.get_subtask");
                     wxGetApp().getAgent()->get_subtask(curr_model_task, get_subtask_fn, wxGetApp().get_printer_cloud_provider());
                 }
             }
@@ -3889,9 +3907,9 @@ void StatusPanel::update_subtask(MachineObject *obj)
 
     m_project_task_panel->show_layers_num(obj->is_support_layer_num);
 
-    update_model_info();
-    update_partskip_button(obj);
-    update_printer_parts_options(obj);
+    { CdsStepTimer t("update_subtask.update_model_info"); update_model_info(); }
+    { CdsStepTimer t("update_subtask.update_partskip_button"); update_partskip_button(obj); }
+    { CdsStepTimer t("update_subtask.update_printer_parts_options"); update_printer_parts_options(obj); }
 
     if (obj->is_system_printing() || obj->is_in_calibration()) {
         reset_printing_values();
@@ -4021,7 +4039,7 @@ void StatusPanel::update_subtask(MachineObject *obj)
             update_sdcard_subtask(obj);
         } else {
             update_basic_print_data(true);
-            update_cloud_subtask(obj);
+            { CdsStepTimer t("update_subtask.update_cloud_subtask"); update_cloud_subtask(obj); }
         }
     } else {
         reset_printing_values();
@@ -4060,10 +4078,10 @@ void StatusPanel::update_cloud_subtask(MachineObject *obj)
     if (!obj->subtask_) return;
 
     if (is_task_changed(obj)) {
-        obj->set_modeltask(nullptr);
-        obj->free_slice_info();
-        reset_printing_values();
         BOOST_LOG_TRIVIAL(info) << "monitor: change to sub task id = " << obj->subtask_->task_id;
+        { CdsStepTimer t("cloud_subtask.set_modeltask"); obj->set_modeltask(nullptr); }
+        { CdsStepTimer t("cloud_subtask.free_slice_info"); obj->free_slice_info(); }
+        { CdsStepTimer t("cloud_subtask.reset_printing_values"); reset_printing_values(); }
         if (web_request.IsOk() && web_request.GetState() == wxWebRequest::State_Active) {
             BOOST_LOG_TRIVIAL(info) << "web_request: cancelled";
             web_request.Cancel();
@@ -4075,6 +4093,7 @@ void StatusPanel::update_cloud_subtask(MachineObject *obj)
         update_calib_bitmap();
         if (obj->slice_info) {
             m_request_url = wxString(obj->slice_info->thumbnail_url);
+            CdsStepTimer t("cloud_subtask.load_thumbnail_from_url");
             load_thumbnail_from_url(m_request_url, obj);
         }
     }
@@ -4103,6 +4122,7 @@ bool StatusPanel::load_thumbnail_from_url(const wxString &url, MachineObject *ob
         BOOST_LOG_TRIVIAL(trace) << "web_request: use cache image";
     } else {
         m_request_url = url;
+        CdsStepTimer cds_web_timer("load_thumbnail.wxWebSession_CreateRequest_Start");
         web_request = wxWebSession::GetDefault().CreateRequest(this, m_request_url);
         BOOST_LOG_TRIVIAL(trace) << "monitor: start request thumbnail, url = " << m_request_url;
         web_request.Start();

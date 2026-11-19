@@ -15,6 +15,7 @@
 #include <shared_mutex>
 #include <stdlib.h>
 #include <boost/log/trivial.hpp>
+#include <chrono>
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
 #include "bambu_networking.hpp"
@@ -53,6 +54,20 @@ const char* network_abi_name(NetworkAbi abi)
 namespace {
 
 std::shared_mutex g_network_module_lifetime_mutex;
+
+// CDS diagnostics: logs how long the module lifetime lock was held exclusively (>= 100 ms).
+struct CdsLockHoldLog
+{
+    const char*                                  what;
+    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    explicit CdsLockHoldLog(const char* w) : what(w) {}
+    ~CdsLockHoldLog()
+    {
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+        if (ms >= 100)
+            BOOST_LOG_TRIVIAL(warning) << "BBLNetworkPlugin: " << what << " held the module lifetime lock for " << ms << " ms";
+    }
+};
 thread_local unsigned g_network_module_call_depth = 0;
 std::mutex g_runtime_environment_mutex;
 
@@ -191,8 +206,14 @@ BBLNetworkPlugin& BBLNetworkPlugin::instance()
 BBLNetworkPlugin::ModuleCallGuard::ModuleCallGuard(std::shared_mutex& mutex)
     : m_mutex(&mutex), m_active(true)
 {
-    if (g_network_module_call_depth == 0)
+    if (g_network_module_call_depth == 0) {
+        // CDS diagnostics: report a long wait for the module lifetime lock (someone holds it exclusively).
+        const auto wait_start = std::chrono::steady_clock::now();
         mutex.lock_shared();
+        const auto wait_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - wait_start).count();
+        if (wait_ms >= 100)
+            BOOST_LOG_TRIVIAL(warning) << "BBLNetworkPlugin: waited " << wait_ms << " ms for the module lifetime lock";
+    }
     ++g_network_module_call_depth;
 }
 
@@ -392,6 +413,7 @@ int BBLNetworkPlugin::linux_runtime_http_get(
 int BBLNetworkPlugin::initialize(bool using_backup, const std::string& version)
 {
     std::unique_lock<std::shared_mutex> module_lock(g_network_module_lifetime_mutex);
+    CdsLockHoldLog hold_log("initialize");
     clear_load_error();
 
     if (m_networking_module) {
@@ -608,6 +630,7 @@ int BBLNetworkPlugin::initialize(bool using_backup, const std::string& version)
 int BBLNetworkPlugin::unload()
 {
     std::unique_lock<std::shared_mutex> module_lock(g_network_module_lifetime_mutex);
+    CdsLockHoldLog hold_log("unload");
     return unload_unlocked();
 }
 
@@ -731,6 +754,7 @@ std::string BBLNetworkPlugin::get_version() const
 void* BBLNetworkPlugin::create_agent(const std::string& log_dir)
 {
     std::unique_lock<std::shared_mutex> module_lock(g_network_module_lifetime_mutex);
+    CdsLockHoldLog hold_log("create_agent");
     return create_agent_unlocked(log_dir);
 }
 
@@ -747,6 +771,7 @@ void* BBLNetworkPlugin::create_agent_unlocked(const std::string& log_dir)
 int BBLNetworkPlugin::destroy_agent()
 {
     std::unique_lock<std::shared_mutex> module_lock(g_network_module_lifetime_mutex);
+    CdsLockHoldLog hold_log("destroy_agent");
     return destroy_agent_unlocked();
 }
 
