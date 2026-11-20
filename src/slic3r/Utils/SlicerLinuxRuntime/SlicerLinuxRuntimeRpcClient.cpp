@@ -8,8 +8,17 @@
 #endif
 
 #include <boost/log/trivial.hpp>
+#include <atomic>
 #include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <fstream>
+#include <map>
+#include <mutex>
+#include <sstream>
 #include <stdexcept>
+#include <thread>
 
 namespace bp = boost::process;
 
@@ -21,6 +30,78 @@ nlohmann::json make_error_payload(const std::string& error)
 {
     return {{"ok", false}, {"error", error}};
 }
+
+// Diagnostics: this code lives in the forwarder DLL whose boost log output never reaches the application
+// log, so slow requests are traced into their own file next to it (<log dir>/rpc_trace.log).
+struct RpcTrace {
+    struct Entry { std::string method; std::chrono::steady_clock::time_point start; std::thread::id tid; };
+
+    std::mutex                  mutex;
+    std::map<long long, Entry>  inflight;
+    std::atomic<long long>      next_key{1};
+
+    static RpcTrace& instance() { static RpcTrace t; return t; }
+
+    static std::string log_path()
+    {
+        const char* base = std::getenv("APPDATA");
+        std::string dir  = base ? std::string(base) + "\\OrcaSlicer\\log" : std::string();
+        return dir.empty() ? std::string("rpc_trace.log") : dir + "\\rpc_trace.log";
+    }
+
+    static void write(const std::string& line)
+    {
+        static std::mutex file_mutex;
+        std::lock_guard<std::mutex> lock(file_mutex);
+        std::ofstream out(log_path(), std::ios::app);
+        if (out) out << line << '\n';
+    }
+};
+
+struct RpcTraceScope {
+    long long                                   key;
+    const std::string&                          method;
+    std::chrono::steady_clock::time_point       start = std::chrono::steady_clock::now();
+    std::string                                 ahead; // requests that were already in flight when this one started
+
+    explicit RpcTraceScope(const std::string& m) : method(m)
+    {
+        auto& t = RpcTrace::instance();
+        key     = t.next_key++;
+        std::lock_guard<std::mutex> lock(t.mutex);
+        std::ostringstream os;
+        for (const auto& [k, e] : t.inflight)
+            os << ' ' << e.method << "@" << std::chrono::duration_cast<std::chrono::milliseconds>(start - e.start).count() << "ms";
+        ahead = os.str();
+        t.inflight[key] = {m, start, std::this_thread::get_id()};
+    }
+    ~RpcTraceScope()
+    {
+        auto& t = RpcTrace::instance();
+        {
+            std::lock_guard<std::mutex> lock(t.mutex);
+            t.inflight.erase(key);
+        }
+        const auto end = std::chrono::steady_clock::now();
+        const auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        if (ms < 100)
+            return;
+        const auto now_tp = std::chrono::system_clock::now();
+        const std::time_t now_t = std::chrono::system_clock::to_time_t(now_tp);
+        std::tm tm_local{};
+#if defined(_WIN32)
+        localtime_s(&tm_local, &now_t);
+#else
+        localtime_r(&now_t, &tm_local);
+#endif
+        char stamp[32];
+        std::strftime(stamp, sizeof(stamp), "%H:%M:%S", &tm_local);
+        const auto frac = std::chrono::duration_cast<std::chrono::milliseconds>(now_tp.time_since_epoch()).count() % 1000;
+        std::ostringstream os;
+        os << stamp << '.' << frac << " (end) tid=" << std::this_thread::get_id() << " " << method << " took " << ms << " ms; in flight when it started:" << (ahead.empty() ? " none" : ahead);
+        RpcTrace::write(os.str());
+    }
+};
 
 }
 
@@ -338,6 +419,7 @@ RpcBinaryReply RpcClient::request_impl(const std::string& method, const nlohmann
                 BOOST_LOG_TRIVIAL(warning) << "SlicerLinuxRuntime: slow request " << method << " took " << ms << " ms";
         }
     } slow_request_log{method};
+    RpcTraceScope trace_scope{method};
 
     if (!skip_handshake && !ensure_started())
         return {make_error_payload(last_error()), {}};
