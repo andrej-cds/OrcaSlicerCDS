@@ -97,7 +97,6 @@
 #include <wx/toplevel.h>
 #include <wx/zstream.h>
 #include <chrono>
-#include <thread>
 
 #include "DeviceCore/DevBed.h"
 #include "DeviceCore/DevCtrl.h"
@@ -3824,41 +3823,11 @@ void StatusPanel::update_basic_print_data(bool def)
 
 void StatusPanel::update_model_info()
 {
-    auto get_subtask_fn = [this](BBLModelTask* subtask) {
-        if (!subtask)
-            return;
-        // Copy now: the plug-in may only keep the pointer valid for the duration of this callback.
-        auto* model_task = new BBLModelTask(*subtask);
-        CallAfter([this, model_task]() {
-            if (obj && obj->subtask_id_ == model_task->task_id) {
-                obj->set_modeltask(model_task);
-            } else {
-                delete model_task;
-            }
-        });
-    };
-
-
-    if (wxGetApp().getAgent() && obj) {
-        BBLSubTask* curr_task = obj->get_subtask();
-        if (curr_task) {
-            BBLModelTask* curr_model_task = obj->get_modeltask();
-            if (!curr_model_task && !request_model_info_flag) {
-                curr_model_task = new BBLModelTask();
-                curr_model_task->task_id = curr_task->task_id;
-                request_model_info_flag = true;
-                if (!curr_model_task->task_id.empty() && curr_model_task->task_id.compare("0") != 0) {
-                    // The request is a blocking round trip into the network plug-in (seconds with the Linux
-                    // runtime), so it must not run on the UI thread. The result comes back through CallAfter.
-                    NetworkAgent* agent    = wxGetApp().getAgent();
-                    std::string   provider = wxGetApp().get_printer_cloud_provider();
-                    std::thread([agent, curr_model_task, get_subtask_fn, provider]() {
-                        agent->get_subtask(curr_model_task, get_subtask_fn, provider);
-                    }).detach();
-                }
-            }
-        }
-    }
+    // The model-mall details (rating, instance id) used to be fetched here with get_subtask. With the Linux
+    // runtime that call takes seconds and the runtime host restarts right after it, so the next plug-in call on
+    // the UI thread paid a full restart (~7 s). Monitoring does not need the result, so it is not requested.
+    if (wxGetApp().getAgent() && obj && obj->get_subtask() && !obj->get_modeltask() && !request_model_info_flag)
+        request_model_info_flag = true;
 }
 
 void StatusPanel::update_subtask(MachineObject *obj)

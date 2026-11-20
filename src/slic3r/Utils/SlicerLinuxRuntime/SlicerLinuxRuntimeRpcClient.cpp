@@ -49,6 +49,32 @@ struct RpcTrace {
         return dir.empty() ? std::string("rpc_trace.log") : dir + "\\rpc_trace.log";
     }
 
+    static std::string stamp()
+    {
+        const auto now_tp = std::chrono::system_clock::now();
+        const std::time_t now_t = std::chrono::system_clock::to_time_t(now_tp);
+        std::tm tm_local{};
+#if defined(_WIN32)
+        localtime_s(&tm_local, &now_t);
+#else
+        localtime_r(&now_t, &tm_local);
+#endif
+        char buf[32];
+        std::strftime(buf, sizeof(buf), "%H:%M:%S", &tm_local);
+        const auto frac = std::chrono::duration_cast<std::chrono::milliseconds>(now_tp.time_since_epoch()).count() % 1000;
+        char out[48];
+        std::snprintf(out, sizeof(out), "%s.%03d", buf, static_cast<int>(frac));
+        return out;
+    }
+
+    // Lifecycle events of the runtime host process (start, stop, reader failure), always written.
+    static void note(const std::string& text)
+    {
+        std::ostringstream os;
+        os << stamp() << " (event) tid=" << std::this_thread::get_id() << " " << text;
+        write(os.str());
+    }
+
     static void write(const std::string& line)
     {
         static std::mutex file_mutex;
@@ -86,19 +112,8 @@ struct RpcTraceScope {
         const auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
         if (ms < 100)
             return;
-        const auto now_tp = std::chrono::system_clock::now();
-        const std::time_t now_t = std::chrono::system_clock::to_time_t(now_tp);
-        std::tm tm_local{};
-#if defined(_WIN32)
-        localtime_s(&tm_local, &now_t);
-#else
-        localtime_r(&now_t, &tm_local);
-#endif
-        char stamp[32];
-        std::strftime(stamp, sizeof(stamp), "%H:%M:%S", &tm_local);
-        const auto frac = std::chrono::duration_cast<std::chrono::milliseconds>(now_tp.time_since_epoch()).count() % 1000;
         std::ostringstream os;
-        os << stamp << '.' << frac << " (end) tid=" << std::this_thread::get_id() << " " << method << " took " << ms << " ms; in flight when it started:" << (ahead.empty() ? " none" : ahead);
+        os << RpcTrace::stamp() << " (end) tid=" << std::this_thread::get_id() << " " << method << " took " << ms << " ms; in flight when it started:" << (ahead.empty() ? " none" : ahead);
         RpcTrace::write(os.str());
     }
 };
@@ -155,6 +170,7 @@ bool RpcClient::start_locked()
         proc->child = bp::child(spec.argv[0], bp::args(args), bp::std_in < proc->in, bp::std_out > proc->out, env);
 #endif
         m_proc = std::move(proc);
+        RpcTrace::note("host process started (argv0=" + spec.argv[0] + ")");
         m_reader_stop.store(false, std::memory_order_release);
         m_handshake_ok = false;
         m_reader_failed = false;
@@ -177,6 +193,10 @@ void RpcClient::stop()
 
 void RpcClient::stop_locked()
 {
+    {
+        std::lock_guard<std::mutex> lock(m_state_mutex);
+        RpcTrace::note("stop requested; last error: " + m_last_error);
+    }
     std::shared_ptr<Proc> proc;
     std::thread reader;
     std::map<int, std::shared_ptr<Pending>> pending;
@@ -262,6 +282,7 @@ bool RpcClient::ensure_handshake()
 
     const auto reply = request_impl("runtime.handshake", nlohmann::json::object(), {}, true);
     if (!reply.payload.value("ok", false)) {
+        RpcTrace::note("handshake failed: " + reply.payload.value("error", std::string("runtime handshake failed")));
         {
             std::lock_guard<std::mutex> lock(m_state_mutex);
             m_last_error = reply.payload.value("error", std::string("runtime handshake failed"));
@@ -316,6 +337,7 @@ void RpcClient::reader_loop()
                         m_last_error += ", child exit code=" + std::to_string(proc->child.exit_code());
                 } catch (...) {}
                 local_error = m_last_error;
+                RpcTrace::note("reader failed: " + local_error + "; pending requests: " + std::to_string(m_pending.size()));
                 pending = m_pending;
                 m_pending.clear();
             }
