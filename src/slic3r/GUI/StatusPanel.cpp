@@ -97,6 +97,7 @@
 #include <wx/toplevel.h>
 #include <wx/zstream.h>
 #include <chrono>
+#include <thread>
 
 #include "DeviceCore/DevBed.h"
 #include "DeviceCore/DevCtrl.h"
@@ -3824,9 +3825,15 @@ void StatusPanel::update_basic_print_data(bool def)
 void StatusPanel::update_model_info()
 {
     auto get_subtask_fn = [this](BBLModelTask* subtask) {
-        CallAfter([this, subtask]() {
-            if (obj && obj->subtask_id_ == subtask->task_id) {
-                obj->set_modeltask(subtask);
+        if (!subtask)
+            return;
+        // Copy now: the plug-in may only keep the pointer valid for the duration of this callback.
+        auto* model_task = new BBLModelTask(*subtask);
+        CallAfter([this, model_task]() {
+            if (obj && obj->subtask_id_ == model_task->task_id) {
+                obj->set_modeltask(model_task);
+            } else {
+                delete model_task;
             }
         });
     };
@@ -3841,8 +3848,13 @@ void StatusPanel::update_model_info()
                 curr_model_task->task_id = curr_task->task_id;
                 request_model_info_flag = true;
                 if (!curr_model_task->task_id.empty() && curr_model_task->task_id.compare("0") != 0) {
-                    CdsStepTimer t("update_model_info.get_subtask");
-                    wxGetApp().getAgent()->get_subtask(curr_model_task, get_subtask_fn, wxGetApp().get_printer_cloud_provider());
+                    // The request is a blocking round trip into the network plug-in (seconds with the Linux
+                    // runtime), so it must not run on the UI thread. The result comes back through CallAfter.
+                    NetworkAgent* agent    = wxGetApp().getAgent();
+                    std::string   provider = wxGetApp().get_printer_cloud_provider();
+                    std::thread([agent, curr_model_task, get_subtask_fn, provider]() {
+                        agent->get_subtask(curr_model_task, get_subtask_fn, provider);
+                    }).detach();
                 }
             }
         }

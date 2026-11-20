@@ -9,8 +9,10 @@
 #include "ICloudServiceAgent.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 
+#include <chrono>
 #include <map>
 #include <functional>
+#include <thread>
 #include "libslic3r/ProjectTask.hpp"
 #include <sstream>
 #include <boost/algorithm/string/replace.hpp>
@@ -373,21 +375,39 @@ int BBLCloudServiceAgent::connect_server()
     auto agent = plugin.get_agent();
     auto func = plugin.get_connect_server();
     if (func && agent) {
-        return func(agent);
+        const int ret = func(agent);
+        m_server_state->last_refresh_ms.store(0); // force a refresh at the next is_server_connected()
+        return ret;
     }
     return -1;
 }
 
 bool BBLCloudServiceAgent::is_server_connected()
 {
-    auto& plugin = BBLNetworkPlugin::instance();
-    auto module_lock = BBLNetworkPlugin::lock_module_for_call();
-    auto agent = plugin.get_agent();
-    auto func = plugin.get_is_server_connected();
-    if (func && agent) {
-        return func(agent);
+    using Clock = std::chrono::steady_clock;
+    const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count();
+
+    constexpr long long refresh_interval_ms = 1500;
+    if (now_ms - m_server_state->last_refresh_ms.load() >= refresh_interval_ms && !m_server_state->refresh_in_flight.exchange(true)) {
+        std::thread([state = m_server_state]() {
+            bool connected = false;
+            {
+                auto& plugin = BBLNetworkPlugin::instance();
+                auto module_lock = BBLNetworkPlugin::lock_module_for_call();
+                auto agent = plugin.get_agent();
+                auto func = plugin.get_is_server_connected();
+                if (func && agent)
+                    connected = func(agent);
+            }
+            state->value.store(connected ? 1 : 0);
+            state->last_refresh_ms.store(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count());
+            state->refresh_in_flight.store(false);
+        }).detach();
     }
-    return false;
+
+    // Until the first refresh has finished the state is unknown; report connected so the UI does not show
+    // a spurious "server disconnected" while the plug-in is still starting up.
+    return m_server_state->value.load() != 0;
 }
 
 int BBLCloudServiceAgent::refresh_connection()
@@ -985,7 +1005,8 @@ int BBLCloudServiceAgent::set_on_server_connected_fn(AppOnServerConnectedFn fn)
     auto func = plugin.get_set_on_server_connected_fn();
     if (func && agent) {
         // Register raw callback with DLL, wrap to inject CloudEvent
-        return func(agent, [this](int return_code, int reason_code) {
+        return func(agent, [this, state = m_server_state](int return_code, int reason_code) {
+            state->last_refresh_ms.store(0); // the connection state changed: refresh the cached value
             if (m_app_on_server_connected_fn) {
                 m_app_on_server_connected_fn(CloudEvent{BBL_CLOUD_PROVIDER}, return_code, reason_code);
             }

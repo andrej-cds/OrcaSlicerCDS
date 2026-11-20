@@ -4,7 +4,9 @@
 #include "CloudProvider.hpp"
 #include "ICloudServiceAgent.hpp"
 #include "bambu_networking.hpp"
+#include <atomic>
 #include <functional>
+#include <memory>
 #include "libslic3r/ProjectTask.hpp"
 #include <string>
 #include <map>
@@ -134,6 +136,18 @@ private:
     int set_extra_http_header();
     static std::map<std::string, std::string> get_extra_header();
     bool m_enable_track{false};
+
+    // Cached server connection state. The plug-in call behind is_server_connected() can block for
+    // several seconds (the Linux runtime round trip), and MachineObject::is_connected() asks for it on
+    // the UI thread on every update. The state is therefore refreshed on a worker thread and callers
+    // get the last known value. Shared so that a worker outliving the agent stays valid.
+    struct ServerConnectedState {
+        std::atomic<int>       value{-1}; // -1 unknown, 0 disconnected, 1 connected
+        std::atomic<bool>      refresh_in_flight{false};
+        std::atomic<long long> last_refresh_ms{0};
+    };
+    std::shared_ptr<ServerConnectedState> m_server_state{std::make_shared<ServerConnectedState>()};
+
     AppOnServerConnectedFn m_app_on_server_connected_fn;
     AppOnHttpErrorFn m_app_on_http_error_fn;
 };
